@@ -14,7 +14,13 @@ Installation
 
 .. code:: python
 
-    pip install git+https://github.digitalglobe.com/nw002655/geoio.git
+    pip install geoio
+    
+Dependencies will be handled at install if possible.  GDAL is not cleanly
+installable via pip so should be handled searately (conda, yum, apt-get, etc.).
+The run dependencies are:  ``gdal, xmltodict, pytz, tzwhere, ephem, numpy, tinytools``.  
+Additionally, ``dgsamples`` is required for testing and ``matplotlib`` must be
+available for the plotting functions to work.
 
 Imports 
 =======
@@ -103,3 +109,23 @@ Using the DGImage object:
 
     # Get image data and convert to TOA reflectance
     data = img.get_data_as_toa_ref()
+    
+Plotting with the ``geoio.plotting`` functions:
+
+.. code:: python
+
+    # Instantiate an image object
+    img = geoio.DGImage('/path/to/dgimgfile.TIL')
+    
+    # Plot the RGB image
+    geoio.plotting.imshow(img.get_data(bands='RGB'))
+    
+    # Plot the near-infrared false color image
+    geoio.plotting.imshow(img.get_data(bands=['N1','G','B']))
+    
+    # Plotting a histogram of the image bands
+    geoio.plotting.hist(img.get_data())
+    
+    # Plotting a histogram of specific bands
+    geoio.plotting.hist(img.get_data(bands='VIS'))
+    
