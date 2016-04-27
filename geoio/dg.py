@@ -390,10 +390,9 @@ class DGImage(GeoImage):
             raise ValueError, "No band values were found in the requested " \
                               "alias."
 
-
         # Call super with keywords passed in and/or convereted above
         data = super(self.__class__,self).get_data(component = component,
-                                                   bands = bands,
+                                                   bands = band_nums,
                                                    window = window,
                                                    buffer = buffer,
                                                    virtual = virtual)
