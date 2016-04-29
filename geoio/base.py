@@ -271,7 +271,8 @@ class GeoImage(object):
         for c in xrange(len(self.files.dfile_tiles)):
             yield self.get_data(component=c, **kwargs)
 
-    def iter_vector(self, vector=None, mask=False, **kwargs):
+    def iter_vector(self, vector=None, mask=False,
+                          properties=False, filter=None, **kwargs):
         """This method iterates (via yeild) through a vector object or file.
         Any kwargs valid for get_data can be passed through."""
 
@@ -304,6 +305,45 @@ class GeoImage(object):
 
         for feat in lyr:
 
+            # Return feature properties data is requested
+            if properties is True:
+                prop_out = feat.items()
+            elif properties:
+                if isinstance(properties, (list, tuple)):
+                    it = feat.items()
+                    prop_out = [it[x] for x in it if x in properties]
+                elif isinstance(properties, str):
+                    prop_out = feat.items()[properties]
+                else:
+                    raise ValueError, "No properties value found matching " \
+                                      "request."
+
+            # import ipdb; ipdb.set_trace()
+
+            # Determine if the feature should be returned based on value of
+            # filter and if the value exists in the feature properties.
+            if filter:
+                filter_pass = False
+                if isinstance(filter,dict):
+                    filter = [filter]
+                if not properties:
+                    prop_out = feat.items()
+                # for f in filter:
+                if isinstance(filter,dict) & (len(filter) != 1):
+                    raise ValueError, "Filters should be passed in as a " \
+                                      "list of dictionaries that will " \
+                                      "be used to filter against the " \
+                                      "feature property values."
+                if prop_out in filter:
+                    pass
+                else:
+                    if properties:
+                        yield (None, None)
+                        continue
+                    else:
+                        yield None
+                        continue
+
             geom = feat.geometry()
             #minX, maxX, minY, maxY = geom.GetExtent()
             extent = geom.GetEnvelope()
@@ -319,7 +359,10 @@ class GeoImage(object):
                               "not be able to be automatically reconciled?  " \
                               "Continuing to next vector feature.")
 
-            yield self.get_data(window=window, **kwargs)
+            if properties:
+                yield (self.get_data(window=window, **kwargs), prop_out)
+            else:
+                yield self.get_data(window=window, **kwargs)
 
     def get_data_from_vec_extent(self, vector=None, mask=False, **kwargs):
         """This is a convenience method to find the extent of a vector and
@@ -378,24 +421,24 @@ class GeoImage(object):
         ul_img = ul_img[:-1]
         lr_img = lr_img[:-1]
 
-        print('vector geo extent:')
-        print(ul_vec)
-        print(lr_vec)
-
-        print('image geo extent:')
-        print(ul_img)
-        print(lr_img)
-
-        print('geo transform:')
-        print(self.meta_geoimg.geo_transform)
+        # print('vector geo extent:')
+        # print(ul_vec)
+        # print(lr_vec)
+        #
+        # print('image geo extent:')
+        # print(ul_img)
+        # print(lr_img)
+        #
+        # print('geo transform:')
+        # print(self.meta_geoimg.geo_transform)
 
         gt = self.meta_geoimg.geo_transform
         ul_xy = self._world2Pixel(gt, ul_img[0], ul_img[1])
         lr_xy = self._world2Pixel(gt, lr_img[0], lr_img[1])
 
-        print('raster xy extent')
-        print(ul_xy)
-        print(lr_xy)
+        # print('raster xy extent')
+        # print(ul_xy)
+        # print(lr_xy)
 
         xoff = min(ul_xy[0], lr_xy[0])
         yoff = min(ul_xy[1], lr_xy[1])
@@ -403,8 +446,8 @@ class GeoImage(object):
         win_ysize = abs(ul_xy[1] - lr_xy[1])
 
         window = [xoff, yoff, win_xsize, win_ysize]
-        print('requested window:')
-        print(window)
+        # print('requested window:')
+        # print(window)
 
         return window
 
