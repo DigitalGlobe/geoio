@@ -353,12 +353,16 @@ class DGImage(GeoImage):
         else:
             return offset
 
-    def get_data(self,component = None,
-                      bands = None,
-                      window = None,
-                      buffer = None,
-                      stype = None,
-                      virtual = False):
+    # ToDo - change to passing **kwargs to super.  Before that happens, shoudl
+    # probably figure out how to merge the docstring from super with below.
+    def get_data(self, component = None,
+                       bands = None,
+                       window = None,
+                       buffer = None,
+                       geom=None,
+                       mask = False,
+                       virtual = False,
+                       stype = None):
         """Get image data with ability to output a data frame or request
         keyword arguments to the parent get_data function.  These include
         requesting certain bands and specific components.  This function will
@@ -395,6 +399,8 @@ class DGImage(GeoImage):
                                                    bands = band_nums,
                                                    window = window,
                                                    buffer = buffer,
+                                                   geom=geom,
+                                                   mask = mask,
                                                    virtual = virtual)
 
         return data

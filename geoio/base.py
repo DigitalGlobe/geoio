@@ -11,6 +11,7 @@ from __future__ import division
 
 from osgeo import gdal, gdalconst, osr, ogr
 gdal.UseExceptions()
+ogr.UseExceptions()
 import numpy as np
 import os
 import warnings
@@ -281,11 +282,10 @@ class GeoImage(object):
                               "method. They both define a retrieval " \
                               "geometry.  Pass one or the other."
 
-        # Catch mask until implemented
-        if mask:
-            raise NotImplementedError, "masked array output is not currently " \
-                                       "implemented.  window and geom will " \
-                                       "return base numpy arrays."
+        if 'geom' in kwargs.keys():
+            raise ValueError, "The geom argument is not valid for this " \
+                              "method. The vector file passed in defines " \
+                              "the retrieval geometry."
 
         # ToDo Test for overlap of geom and image data?
 
@@ -317,8 +317,6 @@ class GeoImage(object):
                 else:
                     raise ValueError, "No properties value found matching " \
                                       "request."
-
-            # import ipdb; ipdb.set_trace()
 
             # Determine if the feature should be returned based on value of
             # filter and if the value exists in the feature properties.
@@ -364,7 +362,7 @@ class GeoImage(object):
             else:
                 yield self.get_data(window=window, **kwargs)
 
-    def get_data_from_vec_extent(self, vector=None, mask=False, **kwargs):
+    def get_data_from_vec_extent(self, vector=None, **kwargs):
         """This is a convenience method to find the extent of a vector and
         return the data from that extent.  kwargs can be anything accepted
         by get_data."""
@@ -378,11 +376,10 @@ class GeoImage(object):
                               "method. The vector file passed in defines " \
                               "the retrieval geometry."
 
-        # Catch mask until implemented
-        if mask:
-            raise NotImplementedError, "masked array output is not currently " \
-                                       "implemented.  window and geom will " \
-                                       "return base numpy arrays."
+        if 'geom' in kwargs.keys():
+            raise ValueError, "The geom argument is not valid for this " \
+                              "method. The vector file passed in defines " \
+                              "the retrieval geometry."
 
         # ToDo Test for overlap of geom and image data?
 
@@ -409,17 +406,21 @@ class GeoImage(object):
                               "or the projections may not be able to be " \
                               "automatically reconciled?"
 
-        return self.get_data(window=window,**kwargs)
+        return self.get_data(window = window, **kwargs)
 
-    def _extent_to_window(self,extent,coord_trans):
+    def _extent_to_window(self,extent,coord_trans=None):
 
         [minX, maxX, minY, maxY] = extent
         ul_vec = [minX, maxY]
         lr_vec = [maxX, minY]
 
-        [ul_img, lr_img] = coord_trans.TransformPoints([ul_vec, lr_vec])
-        ul_img = ul_img[:-1]
-        lr_img = lr_img[:-1]
+        if coord_trans:
+            [ul_img, lr_img] = coord_trans.TransformPoints([ul_vec, lr_vec])
+            ul_img = ul_img[:-1]
+            lr_img = lr_img[:-1]
+        else:
+            ul_img = ul_vec
+            lr_img = lr_vec
 
         # print('vector geo extent:')
         # print(ul_vec)
@@ -466,11 +467,13 @@ class GeoImage(object):
         line = int((ulY - y) / xDist)
         return (pixel, line)
 
-    def get_data(self, component=None,
-                       bands=None,
-                       window=None,
-                       buffer=None,
-                       virtual=False):
+    def get_data(self, component = None,
+                       bands = None,
+                       window = None,
+                       buffer = None,
+                       geom = None,
+                       mask = False,
+                       virtual = False):
         """Read data from geo-image file.  If component is specified and
         this is a .vrt or .til file, then it will pull only the data from
         the file specified in self.dfile_tiles.  Component is specified base 1.
@@ -519,14 +522,34 @@ class GeoImage(object):
         if not bands:
             bands = range(1,obj.RasterCount+1)
 
-        # Set geometry to pull
+        # Set window to pull
+        if window and geom:
+            raise ValueError, "The arguments window and geom are mutually " \
+                              "exclusive.  They both define an image " \
+                              "extent.  Pass either one or the other.  "
+
+        if mask and not geom:
+            raise ValueError, "The mask option requres geom.  Otherwise, " \
+                              "there is nothing to mask."
+
         if window:
+            # Set extent paramets based on window if provided
             if len(window) == 4:
                 [xoff, yoff, win_xsize, win_ysize] = window
             else:
                 raise ValueError, "Window must be length four and will be read" \
                                   "as: xoff, yoff, win_xsize, win_ysize"
+        elif geom:
+            # Set window size based on a geom object in image space
+            # ToDo - Add all_touched option to this and mask function.
+            print('No projection checking is done.  Returning passed geometry '
+                  'in image space.')
+            g = self._instantiate_geom(geom)
+            extent = g.GetEnvelope()
+            window = self._extent_to_window(extent)
+            [xoff, yoff, win_xsize, win_ysize] = window
         else:
+            # Else use extent of image to set extent params
             xoff = 0
             yoff = 0
             win_xsize = self.meta_geoimg.x
@@ -589,6 +612,12 @@ class GeoImage(object):
                np.abs(np_ylim_buff) > ybuff:
                raise ValueError, "Requested window is outside the image."
 
+        # Catch mask until implemented
+        if mask:
+           raise NotImplementedError, "masked array output is not currently " \
+                                      "implemented.  window and geom will " \
+                                      "return base numpy arrays."
+
         # Read data
         if virtual is True:
             raise NotImplementedError('keyword argument not implemented yet.')
@@ -631,6 +660,34 @@ class GeoImage(object):
             pass
 
         return data
+
+    def _instantiate_geom(self,g):
+
+        if isinstance(g,ogr.Geometry):
+            return g
+
+        try:
+            return ogr.CreateGeometryFromGML(g)
+        except:
+            pass
+
+        try:
+            return ogr.CreateGeometryFromWkb(g)
+        except:
+            pass
+
+        try:
+            return ogr.CreateGeometryFromJson(g)
+        except:
+            pass
+
+        try:
+            return ogr.CreateGeometryFromWkt(g)
+        except:
+            pass
+
+        raise ValueError, "A geometry object was not able to be created from " \
+                          "the value passed in."
 
     def write_img_like_this(self,new_fname,np_array,return_obj=False,
                             gdal_driver_name=None,options=[],
