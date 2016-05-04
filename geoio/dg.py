@@ -372,9 +372,9 @@ class DGImage(GeoImage):
 
         # Set spectral retrival if requested
         if stype:
-            raise NotImplementedError, "stype handling in get_data is not " \
-                                       "implemented yet.  Please use the " \
-                                       "dedicated methods."
+            raise NotImplementedError("stype handling in get_data is not " \
+                                      "implemented yet.  Please use the " \
+                                      "dedicated methods.")
 
         # Set satelite index to query const dictionaries
         # Set initial band names that might be updated below
@@ -391,8 +391,8 @@ class DGImage(GeoImage):
             band_nums = get_alias_band_numbers(sat_index,bnames)
 
         if len(band_nums) is 0:
-            raise ValueError, "No band values were found in the requested " \
-                              "alias."
+            raise ValueError("No band values were found in the requested " \
+                             "alias.")
 
         # Call super with keywords passed in and/or convereted above
         data = super(self.__class__,self).get_data(component = component,
@@ -886,8 +886,8 @@ class DGImage(GeoImage):
     def get_data_as_surf_ref(self):
         """Get data from DGAcomp files, if they exist."""
         if not self.files.dgacomp:
-            raise ValueError, 'DGAComp files must be precomputed to use ' \
-                              'this method.'
+            raise ValueError('DGAComp files must be precomputed to use ' \
+                             'this method.')
         tmp = GeoImage(self.files.dgacomp)
         data = tmp.get_data()
         del tmp

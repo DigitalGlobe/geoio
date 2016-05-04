@@ -285,14 +285,14 @@ class GeoImage(object):
         Any kwargs valid for get_data can be passed through."""
 
         if 'window' in kwargs.keys():
-            raise ValueError, "The window argument is not valid for this " \
-                              "method. They both define a retrieval " \
-                              "geometry.  Pass one or the other."
+            raise ValueError("The window argument is not valid for this " \
+                             "method. They both define a retrieval " \
+                             "geometry.  Pass one or the other.")
 
         if 'geom' in kwargs.keys():
-            raise ValueError, "The geom argument is not valid for this " \
-                              "method. The vector file passed in defines " \
-                              "the retrieval geometry."
+            raise ValueError("The geom argument is not valid for this " \
+                             "method. The vector file passed in defines " \
+                             "the retrieval geometry.")
 
         # ToDo Test for overlap of geom and image data?
 
@@ -321,8 +321,8 @@ class GeoImage(object):
                 elif isinstance(properties, str):
                     prop_out = feat.items()[properties]
                 else:
-                    raise ValueError, "No properties value found matching " \
-                                      "request."
+                    raise ValueError("No properties value found matching " \
+                                     "request.")
 
             # Determine if the feature should be returned based on value of
             # filter and if the value exists in the feature properties.
@@ -333,10 +333,10 @@ class GeoImage(object):
                     prop_out = feat.items()
                 # for f in filter:
                 if isinstance(filter,dict) & (len(filter) != 1):
-                    raise ValueError, "Filters should be passed in as a " \
-                                      "list of dictionaries that will " \
-                                      "be used to filter against the " \
-                                      "feature property values."
+                    raise ValueError("Filters should be passed in as a " \
+                                     "list of dictionaries that will " \
+                                     "be used to filter against the " \
+                                     "feature property values.")
                 if any(prop_out.get(d.keys()[0], None) == d.values()[0]
                                                             for d in filter):
                     pass
@@ -367,25 +367,25 @@ class GeoImage(object):
         return the data from that extent.  kwargs can be anything accepted
         by get_data."""
         if vector is None:
-            raise ValueError, "Requires a vector to read.  The vector can be " \
-                              "a string that describes a vector object or a " \
-                              "path to a valid vector file."
+            raise ValueError("Requires a vector to read.  The vector can be " \
+                             "a string that describes a vector object or a " \
+                             "path to a valid vector file.")
 
         if 'window' in kwargs.keys():
-            raise ValueError, "The window argument is not valid for this " \
-                              "method. The vector file passed in defines " \
-                              "the retrieval geometry."
+            raise ValueError("The window argument is not valid for this " \
+                             "method. The vector file passed in defines " \
+                             "the retrieval geometry.")
 
         if 'geom' in kwargs.keys():
-            raise ValueError, "The geom argument is not valid for this " \
-                              "method. The vector file passed in defines " \
-                              "the retrieval geometry."
+            raise ValueError("The geom argument is not valid for this " \
+                             "method. The vector file passed in defines " \
+                             "the retrieval geometry.")
 
         if 'mask' in kwargs.keys():
-            raise ValueError, "A mask request is not valid for this method " \
-                              "because it retrives data from the full extent " \
-                              "of the vector.  You might want a rasterize " \
-                              "method or iter_vector?"
+            raise ValueError("A mask request is not valid for this method " \
+                             "because it retrives data from the full extent " \
+                             "of the vector.  You might want a rasterize " \
+                             "method or iter_vector?")
 
         # ToDo Test for overlap of geom and image data?
 
@@ -530,21 +530,21 @@ class GeoImage(object):
 
         # Set window to pull
         if window and geom:
-            raise ValueError, "The arguments window and geom are mutually " \
-                              "exclusive.  They both define an image " \
-                              "extent.  Pass either one or the other.  "
+            raise ValueError("The arguments window and geom are mutually " \
+                             "exclusive.  They both define an image " \
+                             "extent.  Pass either one or the other.")
 
         if mask and not geom:
-            raise ValueError, "The mask option requres geom.  Otherwise, " \
-                              "there is nothing to mask."
+            raise ValueError("The mask option requres geom.  Otherwise, " \
+                             "there is nothing to mask.")
 
         if window:
             # Set extent paramets based on window if provided
             if len(window) == 4:
                 [xoff, yoff, win_xsize, win_ysize] = window
             else:
-                raise ValueError, "Window must be length four and will be read" \
-                                  "as: xoff, yoff, win_xsize, win_ysize"
+                raise ValueError("Window must be length four and will be read" \
+                                 "as: xoff, yoff, win_xsize, win_ysize")
         elif geom:
             # Set window size based on a geom object in image space
             # ToDo - Add all_touched option to this and mask function.
@@ -573,7 +573,7 @@ class GeoImage(object):
                 xbuff = buffer[0]
                 ybuff = buffer[1]
             else:
-                raise ValueError, "Buffer must be either length one or two"
+                raise ValueError("Buffer must be either length one or two.")
 
             # Apply the buffer to the readasarray parameters
             xoff = xoff-xbuff
@@ -616,7 +616,7 @@ class GeoImage(object):
                np.abs(np_xlim_buff) > xbuff or \
                np.abs(np_yoff_buff) > ybuff or \
                np.abs(np_ylim_buff) > ybuff:
-               raise ValueError, "Requested window is outside the image."
+               raise ValueError("Requested window is outside the image.")
 
         # Read data
         if virtual is True:
@@ -642,7 +642,7 @@ class GeoImage(object):
                                                    win_xsize=win_xsize,
                                                    win_ysize=win_ysize)
         else:
-            raise ValueError, "virtual keyword argument should be boolean."
+            raise ValueError("virtual keyword argument should be boolean.")
 
         # Convert numpy array to masked numpy array if requested.
         if mask:
@@ -737,8 +737,8 @@ class GeoImage(object):
         except:
             pass
 
-        raise ValueError, "A geometry object was not able to be created from " \
-                          "the value passed in."
+        raise ValueError("A geometry object was not able to be created from " \
+                         "the value passed in.")
 
     def write_img_like_this(self,new_fname,np_array,return_obj=False,
                             gdal_driver_name=None,options=[],

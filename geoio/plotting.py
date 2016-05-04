@@ -20,9 +20,9 @@ def imshow(data,stretch=[0.02,0.98],stretch_type='linear'):
     """
 
     if len(data[:,0,0]) != 3:
-        raise ValueError, 'This convenience function is only implemented ' \
-                          'for three bands.  Use img.get_data(bands=...) to ' \
-                          'retrieve specific data.'
+        raise ValueError('This convenience function is only implemented ' \
+                         'for three bands.  Use img.get_data(bands=...) to ' \
+                         'retrieve specific data.')
                         # ToDo - This could also be speed up by indexing a
                         # single numpy array.
 
@@ -34,7 +34,7 @@ def imshow(data,stretch=[0.02,0.98],stretch_type='linear'):
     if stretch_type == "linear":
         pass
     else:
-        raise ValueError, 'The passed value of stretch is not implemented.'
+        raise ValueError('The passed value of stretch is not implemented.')
 
     # Get the per-band scaled data
     data = tt.np_img.conv_to_bandslast(data)
