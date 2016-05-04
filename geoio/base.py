@@ -272,8 +272,7 @@ class GeoImage(object):
         for c in xrange(len(self.files.dfile_tiles)):
             yield self.get_data(component=c, **kwargs)
 
-    def iter_vector(self, vector=None, mask=False,
-                          properties=False, filter=None, **kwargs):
+    def iter_vector(self, vector=None, properties=False, filter=None, **kwargs):
         """This method iterates (via yeild) through a vector object or file.
         Any kwargs valid for get_data can be passed through."""
 
@@ -304,7 +303,6 @@ class GeoImage(object):
         coord_trans = osr.CoordinateTransformation(lyr_sr, img_sr)
 
         for feat in lyr:
-
             # Return feature properties data is requested
             if properties is True:
                 prop_out = feat.items()
@@ -343,24 +341,28 @@ class GeoImage(object):
                         continue
 
             geom = feat.geometry()
+
+            # geom = x['geometry']
             #minX, maxX, minY, maxY = geom.GetExtent()
-            extent = geom.GetEnvelope()
-
-            window = self._extent_to_window(extent, coord_trans)
-            [xoff, yoff, win_xsize, win_ysize] = window
-
-            if ((xoff + win_xsize <= 0) or (yoff + win_ysize <= 0) or
-                (xoff > self.meta_geoimg.x) or (yoff > self.meta_geoimg.y)):
-                warnings.warn("The requested data window has no " \
-                              "content.  Perhaps the image and vector " \
-                              "do not overlap or the projections may " \
-                              "not be able to be automatically reconciled?  " \
-                              "Continuing to next vector feature.")
+            # extent = geom.GetEnvelope()
+            #
+            # window = self._extent_to_window(extent, coord_trans)
+            # [xoff, yoff, win_xsize, win_ysize] = window
+            #
+            # if ((xoff + win_xsize <= 0) or (yoff + win_ysize <= 0) or
+            #     (xoff > self.meta_geoimg.x) or (yoff > self.meta_geoimg.y)):
+            #     warnings.warn("The requested data window has no " \
+            #                   "content.  Perhaps the image and vector " \
+            #                   "do not overlap or the projections may " \
+            #                   "not be able to be autollllmatically reconciled?  " \
+            #                   "Continuing to next vector feature.")
 
             if properties:
-                yield (self.get_data(window=window, **kwargs), prop_out)
+                tmp = self.get_data(geom=geom, **kwargs)
+                yield (tmp, prop_out)
             else:
-                yield self.get_data(window=window, **kwargs)
+                tmp = self.get_data(geom=geom, **kwargs)
+                yield tmp
 
     def get_data_from_vec_extent(self, vector=None, **kwargs):
         """This is a convenience method to find the extent of a vector and
@@ -612,12 +614,6 @@ class GeoImage(object):
                np.abs(np_ylim_buff) > ybuff:
                raise ValueError, "Requested window is outside the image."
 
-        # Catch mask until implemented
-        if mask:
-           raise NotImplementedError, "masked array output is not currently " \
-                                      "implemented.  window and geom will " \
-                                      "return base numpy arrays."
-
         # Read data
         if virtual is True:
             raise NotImplementedError('keyword argument not implemented yet.')
@@ -644,6 +640,38 @@ class GeoImage(object):
         else:
             raise ValueError, "virtual keyword argument should be boolean."
 
+        # Convert numpy array to masked numpy array if requested.
+        if mask:
+            # Set image parameters
+            xres = self.meta_geoimg.xres
+            yres = self.meta_geoimg.yres
+            (xmin, xmax, ymin, ymax) = g.GetEnvelope()
+
+            # Create temporary raster to burn
+            drv = gdal.GetDriverByName('MEM')
+            tds = drv.Create('', win_xsize, win_ysize, 1, gdal.GDT_Byte)
+            tds.SetGeoTransform((xmin, xres, 0, ymax, 0, -yres))
+            tds.SetProjection(self.meta_geoimg.projection_string)
+
+            # Create ogr layr from geom
+            odrv = ogr.GetDriverByName('Memory')
+            ds = odrv.CreateDataSource('')
+
+            ltype = g.GetGeometryType()
+            lsrs = osr.SpatialReference(self.meta_geoimg.projection_string)
+            lyr = ds.CreateLayer('burnshp', lsrs, ltype)
+
+            feat = ogr.Feature(lyr.GetLayerDefn())
+            feat.SetGeometryDirectly(g)
+            lyr.CreateFeature(feat)
+
+            # Run the burn
+            err = gdal.RasterizeLayer(tds, [1], lyr, burn_values=[1])
+
+            # build the masked array
+            m = tds.ReadAsArray().astype('bool')
+            data = np.ma.array(data, mask=np.tile(~m, (data.shape[0], 1, 1)))
+
         # Pad the output array if needed
         if buffer:
             data = np.pad(data,(
@@ -662,27 +690,46 @@ class GeoImage(object):
         return data
 
     def _instantiate_geom(self,g):
+        """Attempt to convert the geometry pass in to and ogr Geometry
+        object.  Currently implements the base ogr.CreateGeometryFrom*
+        methods and will reform fiona geometry dictionaries into a format
+        that ogr.CreateGeometryFromJson will correctly handle.
+        """
 
         if isinstance(g,ogr.Geometry):
-            return g
+            # If the input geometry is already an ogr object, create a copy
+            # of it.  This is requred because of a subtle issue that causes
+            # gdal to crash if the input geom is used elsewhere.  The working
+            # theory is that the geometry is freed when going out of a scope
+            # while it is needed in the upper level loop.  In this code, the
+            # problem comes about between self.iter_vector and self.get_data
+            # with mask=True.
+            return ogr.CreateGeometryFromJson(str(g.ExportToJson()))
 
+        # Handle straight ogr GML
         try:
             return ogr.CreateGeometryFromGML(g)
         except:
             pass
-
+        # Handle straight ogr Wkb
         try:
             return ogr.CreateGeometryFromWkb(g)
         except:
             pass
-
+        # Handle straight ogr Json
         try:
             return ogr.CreateGeometryFromJson(g)
         except:
             pass
-
+        # Handle straight ogr Wkt
         try:
             return ogr.CreateGeometryFromWkt(g)
+        except:
+            pass
+        # Handle fiona Json geometry format
+        try:
+            gjson = str(g).replace('(','[').replace(')',']')
+            return ogr.CreateGeometryFromJson(gjson)
         except:
             pass
 
