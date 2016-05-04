@@ -32,6 +32,14 @@ except:
 import tinytools as tt
 import constants as const
 
+
+class OverlapError(ValueError):
+    '''Raise when the window does not overlap the image.  This can be
+    caught and passed when the window is expected to not overlap in
+    some cases.
+    '''
+    pass
+
 class GeoImage(object):
     """ Input can be .TIL, .VRT, OR .TIF.  If .TIL or .VRT, checking is done
     for tiles that belong to the virtual dataset.
@@ -319,7 +327,6 @@ class GeoImage(object):
             # Determine if the feature should be returned based on value of
             # filter and if the value exists in the feature properties.
             if filter:
-                filter_pass = False
                 if isinstance(filter,dict):
                     filter = [filter]
                 if not properties:
@@ -343,27 +350,17 @@ class GeoImage(object):
 
             geom = feat.geometry()
 
-            # geom = x['geometry']
-            #minX, maxX, minY, maxY = geom.GetExtent()
-            # extent = geom.GetEnvelope()
-            #
-            # window = self._extent_to_window(extent, coord_trans)
-            # [xoff, yoff, win_xsize, win_ysize] = window
-            #
-            # if ((xoff + win_xsize <= 0) or (yoff + win_ysize <= 0) or
-            #     (xoff > self.meta_geoimg.x) or (yoff > self.meta_geoimg.y)):
-            #     warnings.warn("The requested data window has no " \
-            #                   "content.  Perhaps the image and vector " \
-            #                   "do not overlap or the projections may " \
-            #                   "not be able to be autollllmatically reconciled?  " \
-            #                   "Continuing to next vector feature.")
+            # Catch and pass OverlapError for the iterator
+            try:
+                data = self.get_data(geom=geom, **kwargs)
+            except OverlapError:
+                data = None
 
+            # Yield the data
             if properties:
-                tmp = self.get_data(geom=geom, **kwargs)
-                yield (tmp, prop_out)
+                yield (data, prop_out)
             else:
-                tmp = self.get_data(geom=geom, **kwargs)
-                yield tmp
+                yield data
 
     def get_data_from_vec_extent(self, vector=None, **kwargs):
         """This is a convenience method to find the extent of a vector and
@@ -384,6 +381,12 @@ class GeoImage(object):
                               "method. The vector file passed in defines " \
                               "the retrieval geometry."
 
+        if 'mask' in kwargs.keys():
+            raise ValueError, "A mask request is not valid for this method " \
+                              "because it retrives data from the full extent " \
+                              "of the vector.  You might want a rasterize " \
+                              "method or iter_vector?"
+
         # ToDo Test for overlap of geom and image data?
 
         obj = ogr.Open(vector)
@@ -401,13 +404,6 @@ class GeoImage(object):
 
         window = self._extent_to_window(extent,coord_trans)
         [xoff, yoff, win_xsize, win_ysize] = window
-
-        if ((xoff + win_xsize <= 0) or (yoff + win_ysize <= 0) or
-            (xoff > self.meta_geoimg.x) or (yoff > self.meta_geoimg.y)):
-            raise ValueError, "The requested data window has no content.  " \
-                              "Perhaps the image and vector do not overlap " \
-                              "or the projections may not be able to be " \
-                              "automatically reconciled?"
 
         return self.get_data(window = window, **kwargs)
 
@@ -452,6 +448,13 @@ class GeoImage(object):
         window = [xoff, yoff, win_xsize, win_ysize]
         # print('requested window:')
         # print(window)
+
+        if ((xoff + win_xsize <= 0) or (yoff + win_ysize <= 0) or
+            (xoff > self.meta_geoimg.x) or (yoff > self.meta_geoimg.y)):
+            raise OverlapError("The requested data window has no " \
+                              "content.  Perhaps the image and vector " \
+                              "do not overlap or the projections may " \
+                              "not be able to be automatically reconciled?")
 
         return window
 
@@ -545,8 +548,8 @@ class GeoImage(object):
         elif geom:
             # Set window size based on a geom object in image space
             # ToDo - Add all_touched option to this and mask function.
-            print('No projection checking is done.  Returning passed geometry '
-                  'in image space.')
+            warnings.warn('No projection checking is done.  Returning passed '
+                          'geometry in image space.')
             g = self._instantiate_geom(geom)
             extent = g.GetEnvelope()
             window = self._extent_to_window(extent)
