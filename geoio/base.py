@@ -330,7 +330,8 @@ class GeoImage(object):
                                       "list of dictionaries that will " \
                                       "be used to filter against the " \
                                       "feature property values."
-                if prop_out in filter:
+                if any(prop_out.get(d.keys()[0], None) == d.values()[0]
+                                                            for d in filter):
                     pass
                 else:
                     if properties:
