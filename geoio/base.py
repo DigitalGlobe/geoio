@@ -231,7 +231,7 @@ class GeoImage(object):
                     cmd.append(file_loc)
                     for i in tiles_loc: cmd.append(i)
                     ##########
-                    # gdal does not errors to the commnad line,
+                    # gdal does not issue errors to the command line,
                     # so try/except on tt.cmd_line.exec_cmd won't work...
                     tt.cmd_line.exec_cmd(cmd)
                     # Check that file exists to see if the previous command
@@ -409,6 +409,10 @@ class GeoImage(object):
 
     def _extent_to_window(self,extent,coord_trans=None):
 
+        if not coord_trans:
+            warnings.warn('No projection checking is done.  Returning passed '
+                          'geometry in image space.')
+
         [minX, maxX, minY, maxY] = extent
         ul_vec = [minX, maxY]
         lr_vec = [maxX, minY]
@@ -548,8 +552,6 @@ class GeoImage(object):
         elif geom:
             # Set window size based on a geom object in image space
             # ToDo - Add all_touched option to this and mask function.
-            warnings.warn('No projection checking is done.  Returning passed '
-                          'geometry in image space.')
             g = self._instantiate_geom(geom)
             extent = g.GetEnvelope()
             window = self._extent_to_window(extent)
@@ -581,42 +583,43 @@ class GeoImage(object):
             win_xsize = win_xsize+2*xbuff
             win_ysize = win_ysize+2*ybuff
 
-            # out-of-bounds cases (i.e. xoff = 0; buffer = 3; xoff - buffer)
-            # initialize buffer vars
-            np_xoff_buff = 0
-            np_yoff_buff = 0
-            np_xlim_buff = 0
-            np_ylim_buff = 0
+        # Handle out-of-bounds cases
+        # (i.e. xoff = 0; buffer = 3; xoff - buffer)
+        # initialize buffer vars
+        np_xoff_buff = 0
+        np_yoff_buff = 0
+        np_xlim_buff = 0
+        np_ylim_buff = 0
 
-            if xoff < 0:
-                np_xoff_buff = xoff
-                win_xsize = win_xsize + xoff
-                xoff = 0
+        if xoff < 0:
+            np_xoff_buff = xoff
+            win_xsize = win_xsize + xoff
+            xoff = 0
 
-            if yoff < 0 :
-                np_yoff_buff = yoff
-                win_ysize = win_ysize + yoff
-                yoff = 0
+        if yoff < 0 :
+            np_yoff_buff = yoff
+            win_ysize = win_ysize + yoff
+            yoff = 0
 
-            xpos = xoff+win_xsize
-            xlim = self.meta_geoimg.x
-            ypos = yoff+win_ysize
-            ylim = self.meta_geoimg.y
+        xpos = xoff+win_xsize
+        xlim = self.meta_geoimg.x
+        ypos = yoff+win_ysize
+        ylim = self.meta_geoimg.y
 
-            if xpos > xlim:
-                np_xlim_buff = xpos-xlim
-                win_xsize = win_xsize-np_xlim_buff
-            if ypos > self.meta_geoimg.y:
-                np_ylim_buff = ypos-ylim
-                win_ysize = win_ysize-np_ylim_buff
+        if xpos > xlim:
+            np_xlim_buff = xpos-xlim
+            win_xsize = win_xsize-np_xlim_buff
+        if ypos > self.meta_geoimg.y:
+            np_ylim_buff = ypos-ylim
+            win_ysize = win_ysize-np_ylim_buff
 
-            # This code will just buffer window requests outside of the
-            # image dimension, so I need to explicitly catch bad requests
-            if np.abs(np_xoff_buff) > xbuff or \
-               np.abs(np_xlim_buff) > xbuff or \
-               np.abs(np_yoff_buff) > ybuff or \
-               np.abs(np_ylim_buff) > ybuff:
-               raise ValueError("Requested window is outside the image.")
+        # # This code will just buffer window requests outside of the
+        # # image dimension, so I need to explicitly catch bad requests
+        # if np.abs(np_xoff_buff) > xbuff or \
+        #    np.abs(np_xlim_buff) > xbuff or \
+        #    np.abs(np_yoff_buff) > ybuff or \
+        #    np.abs(np_ylim_buff) > ybuff:
+        #    raise ValueError("Requested window is outside the image.")
 
         # Read data
         if virtual is True:
@@ -677,13 +680,12 @@ class GeoImage(object):
             data = np.ma.array(data, mask=np.tile(~m, (data.shape[0], 1, 1)))
 
         # Pad the output array if needed
-        if buffer:
-            data = np.pad(data,(
-                                (0,0),
-                                (np.abs(np_xoff_buff),np.abs(np_xlim_buff)),
-                                (np.abs(np_yoff_buff),np.abs(np_ylim_buff))
-                               ),
-                                    'constant',constant_values=0)
+        data = np.pad(data,(
+                            (0,0),
+                            (np.abs(np_yoff_buff), np.abs(np_ylim_buff)),
+                            (np.abs(np_xoff_buff), np.abs(np_xlim_buff))
+                           ),
+                                'constant',constant_values=0)
 
         # if "y" is open, close it
         try:
