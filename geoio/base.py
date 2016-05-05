@@ -315,11 +315,15 @@ class GeoImage(object):
             if properties is True:
                 prop_out = feat.items()
             elif properties:
-                if isinstance(properties, (list, tuple)):
+                if isinstance(properties, (list, tuple, str)):
+                    if isinstance(properties, str):
+                        properties = [properties]
                     it = feat.items()
-                    prop_out = [it[x] for x in it if x in properties]
-                elif isinstance(properties, str):
-                    prop_out = feat.items()[properties]
+                    if not all(x for x in properties if x in it.keys()):
+                        raise ValueError("One or more of the requested "
+                                         "properties are not in the vector "
+                                         "feature.")
+                    prop_out = {x: it[x] for x in properties if x in it.keys()}
                 else:
                     raise ValueError("No properties value found matching " \
                                      "request.")
@@ -327,18 +331,27 @@ class GeoImage(object):
             # Determine if the feature should be returned based on value of
             # filter and if the value exists in the feature properties.
             if filter:
-                if isinstance(filter,dict):
-                    filter = [filter]
-                if not properties:
-                    prop_out = feat.items()
-                # for f in filter:
-                if isinstance(filter,dict) & (len(filter) != 1):
+                # The filter should be either a list of dictionary key/value
+                # paris of length one, or of list of key/value pairs.  The
+                # idea is that you can filter against more than one value
+                # of a key when you can pass a list of pairs.
+                if isinstance(filter, dict) & (len(filter) != 1):
                     raise ValueError("Filters should be passed in as a " \
                                      "list of dictionaries that will " \
                                      "be used to filter against the " \
                                      "feature property values.")
-                if any(prop_out.get(d.keys()[0], None) == d.values()[0]
-                                                            for d in filter):
+
+                # If filter is a dict of len 1, convert to a list of len 1 for
+                # the looping code below.
+                if isinstance(filter,dict):
+                    filter = [filter]
+
+                # Get feature properties to check against.
+                prop_test = feat.items()
+
+                # If any filter is caught, pass on, otherwise return
+                if any(prop_test.get(d.keys()[0], None) ==
+                                    d.values()[0] for d in filter):
                     pass
                 else:
                     if properties:
@@ -348,6 +361,7 @@ class GeoImage(object):
                         yield None
                         continue
 
+            # Get the geometry to pass to get_data
             geom = feat.geometry()
 
             # Catch and pass OverlapError for the iterator
