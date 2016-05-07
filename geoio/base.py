@@ -268,9 +268,34 @@ class GeoImage(object):
         print(self.__repr__())
 
     def __iter__(self):
-        # Add code for default window/block iteration and ability to
-        # set iteration parameters for a specific problem.
-        pass
+        '''Yield from default iter_window iterator.'''
+        for x in self.iter_window():
+            yield x
+
+    def iter_window(self,win_size=None,stride=None):
+        # if NOT win_size and NOT stride
+        # use gdal to figure out block size
+        if not win_size and not stride:
+            raise NotImplementedError()
+
+        # if win_size and NOT stride
+        # set stride to make windows adjoining
+        elif win_size and not stride:
+            raise NotImplementedError()
+
+        # if NOT win_size and stride, raise error
+        elif not win_size and stride:
+            raise ValueError('Setting stride and not setting win_size is not '
+                             'allowed because there is no resonable value to '
+                             'set win_size to.  In this case stride can be '
+                             'even or odd which could result in alternative '
+                             'size return blocks around the center pixel '
+                             '(or fractional pixel).')
+
+        # if win_size and stride
+        # just do it
+        elif win_size and stride:
+            raise NotImplementedError()
 
     def iter_components(self, **kwargs):
         """This is a convenience method that iterataes (via yeild) through
