@@ -552,10 +552,6 @@ class GeoImage(object):
                              "exclusive.  They both define an image " \
                              "extent.  Pass either one or the other.")
 
-        if mask and not geom:
-            raise ValueError("The mask option requres geom.  Otherwise, " \
-                             "there is nothing to mask.")
-
         if window:
             # Set extent paramets based on window if provided
             if len(window) == 4:
@@ -662,7 +658,7 @@ class GeoImage(object):
             raise ValueError("virtual keyword argument should be boolean.")
 
         # Convert numpy array to masked numpy array if requested.
-        if mask:
+        if mask and geom:
             # Set image parameters
             xres = self.meta_geoimg.xres
             yres = self.meta_geoimg.yres
@@ -693,13 +689,23 @@ class GeoImage(object):
             m = tds.ReadAsArray().astype('bool')
             data = np.ma.array(data, mask=np.tile(~m, (data.shape[0], 1, 1)))
 
+        if mask and not geom:
+            # This code will mask values outside the image as well as zeros
+            # inside the image.
+            data = np.ma.array(data,mask=~data.astype('bool'))
+            # The line below will only mask values outside the image.
+            # data = np.ma.array(data,mask=np.zeros(data.shape).astype('bool'))
+
         # Pad the output array if needed
-        data = np.pad(data,(
-                            (0,0),
-                            (np.abs(np_yoff_buff), np.abs(np_ylim_buff)),
-                            (np.abs(np_xoff_buff), np.abs(np_xlim_buff))
-                           ),
-                                'constant',constant_values=0)
+        pad_tuples = ((0,0),
+                      (np.abs(np_yoff_buff), np.abs(np_ylim_buff)),
+                      (np.abs(np_xoff_buff), np.abs(np_xlim_buff)))
+        if not mask:
+            data = np.pad(data, pad_tuples, 'constant',constant_values=0)
+        elif mask:
+            mpad = np.pad(data.mask, pad_tuples, 'constant', constant_values=1)
+            data = np.pad(data, pad_tuples, 'constant', constant_values=0)
+            data = np.ma.array(data,mask=mpad)
 
         # if "y" is open, close it
         try:
