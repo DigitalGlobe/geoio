@@ -3,6 +3,7 @@ import os
 import collections
 from osgeo import gdalconst
 import numpy as np
+import warnings
 
 import geoio.dg
 import tinytools as tt
@@ -82,6 +83,163 @@ class TestGeoImage(unittest.TestCase):
         back = self.img.write_img_like_this("tmp.tif",a,return_obj=True)
         b = back.get_data()
         self.assertIsNone(np.testing.assert_array_almost_equal(a,b,decimal=6))
+
+class TestGeoImage_getdata(unittest.TestCase):
+    # Run defined method setUp to setup the test environment
+    def setUp(self):
+        self.test_img = dgsamples.wv2_longmont_1k.ms
+        self.img = geoio.GeoImage(self.test_img)
+
+    def tearDown(self):
+        # Remove gdal image object
+        self.img = None
+        # Find temp files from test directory and remove
+        tmp_files = tt.files.search(os.path.dirname(os.path.realpath(__file__)),
+                                    ["*temp*", "*tmp*"], case_sensitive=False)
+
+        print(tmp_files)
+        [os.remove(f) for f in tmp_files]
+
+    def test_get_data_no_options(self):
+        d = self.img.get_data()
+        self.assertEqual(d.shape,(8,501,500))
+
+    def test_get_data_bands_num(self):
+        d = self.img.get_data(bands=[7,3,1])
+        self.assertEqual(d.shape,(3,501,500))
+
+    def test_get_data_window_centered(self):
+        d = self.img.get_data(window=[10,10,21,23])
+        self.assertEqual(d.shape,(8,23,21))
+
+    def test_get_data_window_edge(self):
+        d = self.img.get_data(window=[499,500,1,1])
+        known = np.array(
+            [[[354]],[[226]],[[304]],[[341]],[[176]],[[430]],[[312]],[[518]]])
+        self.assertTrue(np.array_equal(d,known))
+
+class TestGeoImage_iter_vector(unittest.TestCase):
+    # Run defined method setUp to setup the test environment
+    def setUp(self):
+        self.test_img = dgsamples.wv2_longmont_1k.ms
+        self.img = geoio.GeoImage(self.test_img)
+        self.vec = dgsamples.wv2_longmont_1k_vectors.files[1]
+        self.badvec = dgsamples.bayou_vectors.files[2]
+
+    def tearDown(self):
+        # Remove gdal image object
+        self.img = None
+        # Find temp files from test directory and remove
+        tmp_files = tt.files.search(os.path.dirname(os.path.realpath(__file__)),
+                                    ["*temp*", "*tmp*"], case_sensitive=False)
+
+        print(tmp_files)
+        [os.remove(f) for f in tmp_files]
+
+    def test_get_data_noOptions(self):
+        for x in self.img.iter_vector(vector=self.vec):
+            self.assertIsInstance(x,np.ndarray)
+
+    def test_get_data_noOptions_badVec(self):
+        for x in self.img.iter_vector(vector=self.badvec):
+            self.assertIsNone(x)
+
+    def test_get_data_propTrue(self):
+        for x in self.img.iter_vector(vector=self.vec,properties=True):
+            self.assertIsInstance(x,tuple)
+            self.assertIsInstance(x[0], np.ndarray)
+            self.assertIsInstance(x[1], dict)
+
+    def test_get_data_propTrue_badVec(self):
+        for x in self.img.iter_vector(vector=self.badvec,properties=True):
+            self.assertIsInstance(x,tuple)
+            self.assertIsNone(x[0])
+            self.assertIsInstance(x[1],dict)
+
+    def test_get_data_propStr(self):
+        for x in self.img.iter_vector(vector=self.vec,properties='testfloat'):
+            self.assertIsInstance(x,tuple)
+            self.assertIsInstance(x[0], np.ndarray)
+            self.assertIsInstance(x[1], dict)
+            self.assertIsInstance(x[1]['testfloat'], float)
+
+    def test_get_data_propList(self):
+        for x in self.img.iter_vector(vector=self.vec,
+                                      properties=['testfloat', 'teststr']):
+            self.assertIsInstance(x[0], np.ndarray)
+            self.assertIsInstance(x[1], dict)
+            self.assertIsInstance(x[1]['teststr'], str)
+            self.assertIsInstance(x[1]['testfloat'], float)
+            self.assertEqual(len(x[1]), 2)
+
+    def test_get_data_propListBad(self):
+        with warnings.catch_warnings(record=True) as w:
+            for x in self.img.iter_vector(vector=self.vec,
+                                          properties=['testfloatBad']):
+                self.assertIsInstance(x[0], np.ndarray)
+                self.assertIsNone(x[1])
+                self.assertTrue(len(w) == 1)
+
+    def test_get_data_propListGoodBad(self):
+        for x in self.img.iter_vector(vector=self.vec,
+                                      properties=['testfloatBad','teststr']):
+            self.assertIsInstance(x, tuple)
+            self.assertIsInstance(x[0], np.ndarray)
+            self.assertIsInstance(x[1], dict)
+            self.assertIsInstance(x[1]['teststr'], str)
+            self.assertRaises('warn.warning')
+            self.assertEqual(len(x[1]),1)
+
+    def test_get_data_filtDict(self):
+        tmp = [x for x in
+               self.img.iter_vector(vector=self.vec, filter={'id':2})]
+        self.assertEqual(len(tmp),2)
+        self.assertIsNone(tmp[0],None)
+        self.assertIsInstance(tmp[1],np.ndarray)
+
+    def test_get_data_filtDictBadKey(self):
+        with warnings.catch_warnings(record=True) as w:
+            for x in self.img.iter_vector(vector=self.vec, filter={'idbad':2}):
+                self.assertIsNone(x)
+                self.assertTrue( len(w) == 1 )
+
+    def test_get_data_filtDictBadValue(self):
+        for x in self.img.iter_vector(vector=self.vec, filter={'id': 2222}):
+            self.assertIsNone(x)
+
+    def test_get_data_filtList(self):
+        tmp = [x for x in self.img.iter_vector(vector=self.vec,
+                                            filter=[{'id': 2},{'id':1}])]
+        self.assertEqual(len(tmp), 2)
+        self.assertIsInstance(tmp[0], np.ndarray)
+        self.assertIsInstance(tmp[1], np.ndarray)
+
+    def test_get_data_filtListBadValue(self):
+        tmp = [x for x in self.img.iter_vector(vector=self.vec,
+                                        filter=[{'id': 2222}, {'id': 1}])]
+        self.assertEqual(len(tmp), 2)
+        self.assertIsInstance(tmp[0], np.ndarray)
+        self.assertIsNone(tmp[1])
+
+    def test_get_data_propStr_filtList(self):
+        tmp = [x for x in self.img.iter_vector(vector=self.vec,
+                        properties='teststr',
+                        filter=[{'id': 2},{'id': 1}])]
+        self.assertTrue(len(tmp) == 2)
+        self.assertIsInstance(tmp[0][0], np.ndarray)
+        self.assertTrue(len(tmp[0][1]) == 1)
+        self.assertIsInstance(tmp[1][0], np.ndarray)
+        self.assertTrue(len(tmp[1][1]) == 1)
+
+    def test_get_data_propList_filtList(self):
+        tmp = [x for x in self.img.iter_vector(vector=self.vec,
+                          properties=['teststr','testfloat'],
+                          filter=[{'id': 2},{'id': 1}])]
+        self.assertEqual(len(tmp), 2)
+        self.assertIsInstance(tmp[0][0], np.ndarray)
+        self.assertTrue(len(tmp[0][1]) == 2)
+        self.assertIsInstance(tmp[1][0], np.ndarray)
+        self.assertTrue(len(tmp[1][1]) == 2)
 
 class TestDGImage(unittest.TestCase):
     """Testing for :

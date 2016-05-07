@@ -18,10 +18,10 @@ import warnings
 import collections
 import textwrap
 import tempfile
+import logging
 
 try:
     # use logging to silence some import messages from tzwhere
-    import logging
     logging.disable(logging.CRITICAL)
     from tzwhere import tzwhere
     logging.disable(logging.NOTSET)
@@ -321,9 +321,6 @@ class GeoImage(object):
 
         # ToDo Test for overlap of geom and image data?
 
-        # ToDo Need to set geometry and transform info so that get_data can
-        # have access to it
-
         obj = ogr.Open(vector)
         lyr = obj.GetLayer(0)
         lyr_sr = lyr.GetSpatialRef()
@@ -349,9 +346,13 @@ class GeoImage(object):
                                          "properties are not in the vector "
                                          "feature.")
                     prop_out = {x: it[x] for x in properties if x in it.keys()}
+                    if not prop_out:
+                        prop_out = None
+                        warnings.warn("No properties value found matching "
+                                      "request.")
                 else:
-                    raise ValueError("No properties value found matching " \
-                                     "request.")
+                    raise ValueError("Invalid properties argument.")
+
 
             # Determine if the feature should be returned based on value of
             # filter and if the value exists in the feature properties.
@@ -373,6 +374,11 @@ class GeoImage(object):
 
                 # Get feature properties to check against.
                 prop_test = feat.items()
+
+                # raise warning if a filter item key is not in properties
+                if any(f.keys()[0] not in prop_test.keys() for f in filter):
+                    warnings.warn("Requested filter key is not present in "
+                                  "vector properties.")
 
                 # If any filter is caught, pass on, otherwise return
                 if any(prop_test.get(d.keys()[0], None) ==
