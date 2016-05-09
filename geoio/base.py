@@ -272,16 +272,42 @@ class GeoImage(object):
         for x in self.iter_window():
             yield x
 
-    def iter_window(self,win_size=None,stride=None):
+    def iter_window(self,win_size=None,stride=None,**kwargs):
+
+        # Check input values
+        if win_size:
+            if any(x <= 0 for x in win_size):
+                raise ValueError('No value in win_size can be equal '
+                                 'to or less than zero.')
+
+        if stride:
+            if any(x <= 0 for x in stride):
+                raise ValueError('No value in stride can be equal '
+                                 'to or less than zero.')
+
         # if NOT win_size and NOT stride
-        # use gdal to figure out block size
+        # use gdal to figure out block size and then continue on below.
         if not win_size and not stride:
-            raise NotImplementedError()
+            # Get block size from gdal
+            b = self._fobj.GetRasterBand(1)
+            win_size = b.GetBlockSize()
 
         # if win_size and NOT stride
         # set stride to make windows adjoining
-        elif win_size and not stride:
-            raise NotImplementedError()
+        if win_size and not stride:
+            # Use while True to loop through get_data until outside the image
+            xoff = 0
+            yoff = 0
+            xsize = win_size[0]
+            ysize = win_size[1]
+            while True:
+                yield self.get_data(window=[xoff, yoff, xsize, ysize],**kwargs)
+                xoff = xoff + win_size[0]
+                yoff = yoff + win_size[1]
+                if xoff > self.meta_geoimg.x:
+                    break
+                if yoff > self.meta_geoimg.y:
+                    break
 
         # if NOT win_size and stride, raise error
         elif not win_size and stride:
@@ -295,10 +321,24 @@ class GeoImage(object):
         # if win_size and stride
         # just do it
         elif win_size and stride:
-            raise NotImplementedError()
+            # Find starting offset
+            xs = self.meta_geoimg.x
+            ys = self.meta_geoimg.y
+            xoff = int(round(((xs - round(win_size[0])) % stride[0])/2.0))
+            yoff = int(round(((ys - round(win_size[1])) % stride[1])/2.0))
+            xsize = win_size[0]
+            ysize = win_size[1]
+            while True:
+                yield self.get_data(window=[xoff, yoff, xsize, ysize], **kwargs)
+                xoff = xoff + stride[0]
+                yoff = yoff + stride[1]
+                if xoff > self.meta_geoimg.x:
+                    break
+                if yoff > self.meta_geoimg.y:
+                    break
 
     def iter_components(self, **kwargs):
-        """This is a convenience method that iterataes (via yeild) through
+        """This is a convenience method that iterataes (via yield) through
         the components in the image object.  Any kwargs valid for get_data
         can be passed through."""
 
