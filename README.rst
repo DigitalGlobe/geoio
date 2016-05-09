@@ -6,11 +6,11 @@ Introduction
 
 Geoio provides facilities to easily interact with geospatial
 data. The interactions that are supported include data retrieval, spectral
-procesing, meta data handling, shapefile intersection/extraction, and retrieval
+processing, metadata handling, shapefile intersection/extraction, and retrieval
 of statistical information. Specific attention has been paid to accessing
-DigitalGlobe data and meta data, but the same facilities in this module can be
+DigitalGlobe data and metadata, but the same facilities in this module can be
 used to access non-DigitalGlobe data or to build custom processing and
-meta-data handling for other satellite platforms.
+metadata handling for other satellite platforms.
 
 Installation 
 ============
@@ -53,7 +53,7 @@ DigitalGlobe meta data handling, spectral processing, and band alias data
 retrieval.  Therefore, it requires that the input image be a valid DigitalGlobe
 image.  This is currently either a .TIL file with the associated meta data files
 (.IMD and/or .XML) present in the image directory or a .TIF files with an
-identially named .IMD or .XML file.  The meta data is read into an
+identially named .IMD or .XML file.  The metadata is read into an
 ``OrderedBunch`` object (inherited from the tinytools package) attached to the
 instantiated object.
 
