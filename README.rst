@@ -53,7 +53,7 @@ DigitalGlobe meta data handling, spectral processing, and band alias data
 retrieval.  Therefore, it requires that the input image be a valid DigitalGlobe
 image.  This is currently either a .TIL file with the associated meta data files
 (.IMD and/or .XML) present in the image directory or a .TIF files with an
-identially named .IMD or .XML file.  The meta data is read into an
+identially named .IMD or .XML file.  The metadata is read into an
 ``OrderedBunch`` object (inherited from the tinytools package) attached to the
 instantiated object.
 
