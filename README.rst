@@ -10,7 +10,7 @@ processing, metadata handling, shapefile intersection/extraction, and retrieval
 of statistical information. Specific attention has been paid to accessing
 DigitalGlobe data and metadata, but the same facilities in this module can be
 used to access non-DigitalGlobe data or to build custom processing and
-meta-data handling for other satellite platforms.
+metadata handling for other satellite platforms.
 
 Installation 
 ============
