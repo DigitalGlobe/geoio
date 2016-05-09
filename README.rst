@@ -8,7 +8,7 @@ Geoio provides facilities to easily interact with geospatial
 data. The interactions that are supported include data retrieval, spectral
 processing, metadata handling, shapefile intersection/extraction, and retrieval
 of statistical information. Specific attention has been paid to accessing
-DigitalGlobe data and meta data, but the same facilities in this module can be
+DigitalGlobe data and metadata, but the same facilities in this module can be
 used to access non-DigitalGlobe data or to build custom processing and
 meta-data handling for other satellite platforms.
 
