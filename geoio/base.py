@@ -110,7 +110,7 @@ class GeoImage(object):
 
         ### Setup the dataset and subdataset variables
         (tmpfile,tmptiles)=self._populate_file_and_tiles(ifile)
-        (tmpfile,tmptiles)
+
         #!# self.files_dict['dfile'] = tmpfile
         #!# self.files_dict['dfile_tiles'] = tmptiles
         self.files.dfile = tmpfile
@@ -126,23 +126,11 @@ class GeoImage(object):
         # self.meta_geoimg
 
         # Open the image in files.dfile
-        self._fobj = gdal.Open(self.files.dfile, gdalconst.GA_ReadOnly)
+        self._fobj = self._return_gdal_obj(self.files.dfile,
+                                           self.files.dfile_tiles)
 
         # Populate metadata info from gdal
         self._get_img_metadata()
-
-    def __del__(self):
-        """Need to explicitly handle the temporary file or everything has to be
-        done in python "contexts" or need to write a permanent VRT file in
-        some cases.
-        """
-        # Try to remove _temp_dfile_exists flag.  If it doesn't exist, then
-        # python should raise a NameError that we can just pass.
-        try:
-            del self._temp_dfile_exists
-            os.remove(self.files.dfile)
-        except AttributeError:
-            pass
 
     def __repr__(self):
         """Human readable image summary similar to the R package 'raster'."""
@@ -194,66 +182,31 @@ class GeoImage(object):
         # Pixel Resolutions to members
         self.resolution = self.meta_geoimg.resolution
 
-    def _populate_file_and_tiles(self,ifile,build_vrt=True):
-        # Get the file name, full file directory, and flist
-        fname = os.path.basename(ifile)
-        fdir = os.path.dirname(ifile)
-        flist = os.listdir(fdir)
+    def _populate_file_and_tiles(self,ifile):
 
         # If fname is a .til file then create .vrt
         if tt.files.filter(ifile, '*.TIL', case_sensitive=False):
-            # Create vrt name and set to dg dataset unless the VRT isn't
-            # going to be created.  file_loc is overwriten below if build_vrt.
             file_loc = ifile
+            tiles_loc = tt.pvl.read_from_pvl(ifile,'filename')
+            dname = os.path.dirname(ifile)
+            tiles_loc = [os.path.join(dname,x) for x in tiles_loc]
 
-            # Read tiles from til file
-            tmp_tiles = tt.pvl.read_from_pvl(ifile, param_in='filename')
-            tiles_loc = [os.path.join(fdir, x) for x in tmp_tiles]
-
-            # Check for vrt
-            if build_vrt:
-                # If build_vrt, then replace the returned file with a VRT that
-                # will be created.
-                file_temp = tempfile.NamedTemporaryFile(suffix=".VRT",
-                                                            delete=False)
-                file_loc = file_temp.name
-                self._temp_dfile_exists = True
-
-                if tt.files.filter(flist, os.path.basename(file_loc)):
-                    ### If it exists, no need to build a new VRT
-                    pass
-                else:
-                    ### Else build vrt
-                    # Create the vrt command and execute the commnad line tool
-                    # If I can't write, pop and error.
-                    cmd = []
-                    cmd.append("gdalbuildvrt")
-                    cmd.append(file_loc)
-                    for i in tiles_loc: cmd.append(i)
-                    ##########
-                    # gdal does not issue errors to the command line,
-                    # so try/except on tt.cmd_line.exec_cmd won't work...
-                    tt.cmd_line.exec_cmd(cmd)
-                    # Check that file exists to see if the previous command
-                    # worked.
-                    if not os.path.isfile(file_loc):
-                       raise StandardError("Creation of file "+file_loc+" "
-                                           "failed. This could possibly be a "
-                                           "write access problem?")
         # If fname is a VRT, pull subdatasets from the file object
         elif tt.files.filter(ifile, '*.VRT', case_sensitive=False):
             file_loc = ifile
             tmp = gdal.Open(file_loc) # Open to pull VRT file list
             tmp_files = tmp.GetFileList()
             tiles_loc = [x for x in tmp_files if not
-                                tt.files.filter(x, '*.VRT', case_sensitive=False)]
+                            tt.files.filter(x, '*.VRT', case_sensitive=False)]
             tmp = None # Close the opened file from above
+
         # If this is an ENVI file, then a file without an extension should
         # exist and will be the root file.
         elif os.path.isfile(os.path.splitext(ifile)[0]):
             tmp = os.path.splitext(ifile)[0]
             file_loc = tmp
             tiles_loc = [tmp]
+
         # If file input isn't a .TIL, .VRT, or ENVI file, just pass it into the
         # object vars to pass to gdal.
         else:
@@ -262,6 +215,53 @@ class GeoImage(object):
             tiles_loc = [ifile]
 
         return (file_loc,tiles_loc)
+
+    def _return_gdal_obj(self,dfile,dfile_tiles):
+        '''Return gdal object for the GeoImage.'''
+
+        # Need to handle .TIL files specifically because gdal does not fully
+        # support them.
+        if tt.files.filter(dfile, '*.TIL', case_sensitive=False):
+            # If this is a .TIL file, then create a VRT, create a MEM obj,
+            # and then remove the file on disk.
+
+            # Get a temporary file
+            file_temp = tempfile.NamedTemporaryFile(suffix=".VRT")
+
+            # Build the vrt command
+            cmd = []
+            cmd.append("gdalbuildvrt")
+            cmd.append(file_temp.name)
+            for i in dfile_tiles: cmd.append(i)
+
+            # Execute the buildvrt command
+            tt.cmd_line.exec_cmd(cmd)
+            # gdal does not issue errors to the command line,
+            # so try/except on tt.cmd_line.exec_cmd won't work...
+            # Check that file exists to see if the buildvrt succeeded.
+            if not os.path.isfile(file_temp.name):
+                raise StandardError("Creation of file " + file_temp.name + " "
+                                    "failed. This could possibly be a "
+                                    "write access problem?")
+
+            vvv = gdal.Open(file_temp.name)
+
+            # Create MEM copy of VRT
+            drv = gdal.GetDriverByName('MEM')
+            obj = drv.CreateCopy('',vvv)
+
+            # Delete VRT
+            file_temp.close()
+
+            if os.path.isfile(file_temp.name):
+                raise StandardError("Removal of file " + file_temp.name + " "
+                                    "failed. There is something wrong with "
+                                    "the .TIL handling.")
+
+        else:
+            obj = gdal.Open(self.files.dfile, gdalconst.GA_ReadOnly)
+
+        return obj
 
     def print_img_summary(self):
         """Echo the object's __repr__ method."""
