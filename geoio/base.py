@@ -298,14 +298,15 @@ class GeoImage(object):
             # Use while True to loop through get_data until outside the image
             xoff = 0
             yoff = 0
+            xoff_start = xoff
             xsize = win_size[0]
             ysize = win_size[1]
             while True:
                 yield self.get_data(window=[xoff, yoff, xsize, ysize],**kwargs)
                 xoff = xoff + win_size[0]
-                yoff = yoff + win_size[1]
                 if xoff > self.meta_geoimg.x:
-                    break
+                    xoff = xoff_start
+                    yoff = yoff + win_size[1]
                 if yoff > self.meta_geoimg.y:
                     break
 
@@ -326,14 +327,15 @@ class GeoImage(object):
             ys = self.meta_geoimg.y
             xoff = int(round(((xs - round(win_size[0])) % stride[0])/2.0))
             yoff = int(round(((ys - round(win_size[1])) % stride[1])/2.0))
+            xoff_start = xoff
             xsize = win_size[0]
             ysize = win_size[1]
             while True:
                 yield self.get_data(window=[xoff, yoff, xsize, ysize], **kwargs)
                 xoff = xoff + stride[0]
-                yoff = yoff + stride[1]
                 if xoff > self.meta_geoimg.x:
-                    break
+                    xoff = xoff_start
+                    yoff = yoff + stride[1]
                 if yoff > self.meta_geoimg.y:
                     break
 
