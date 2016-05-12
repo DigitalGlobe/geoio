@@ -79,7 +79,7 @@ class DGImage(GeoImage):
         super(self.__class__,self).__init__(dg_file_in, derived_dir)
 
         # Get the file name, full file directory, and flist
-        ifile = self.files.fin
+        ifile = self.files.dfile
         fname = os.path.basename(ifile)
         dgbase = fname.split("-")[0]
         fdir = os.path.dirname(ifile)
@@ -220,7 +220,7 @@ class DGImage(GeoImage):
 
     def _set_dg_spectral_files(self,path=None):
         # Get the search directory
-        data_file = self.files.fin
+        data_file = self.files.dfile
 
         if (not path) & hasattr(self,'derived_dir'):
             path=self.derived_dir
@@ -295,7 +295,7 @@ class DGImage(GeoImage):
             if tif_file:
                 tmp_files.remove(tif_file[0])
 
-        return self._populate_file_and_tiles(tmp_files[0],build_vrt=False)
+        return self._populate_file_and_tiles(tmp_files[0])
 
     def populate_img_datetime_obj_local(self,w=None):
         ## Get the time/date at the image collect location
@@ -552,7 +552,7 @@ class DGImage(GeoImage):
         #Convert to files, each component if requested.
         if not components:
             # Create single file from image data
-            fl = list(os.path.splitext(self.files.fin))
+            fl = list(os.path.splitext(self.files.dfile))
             if path:
                 bn = os.path.basename(fl[0])
                 fl[0] = os.path.join(path, bn)
@@ -562,7 +562,7 @@ class DGImage(GeoImage):
             # Add to dg_img_rad
             self.dg_img_rad = new_fname
         elif components:
-            if (self.files.dfile_tiles[0] == self.files.fin):
+            if (self.files.dfile_tiles[0] == self.files.dfile):
                 print("This data set does not appear to have "
                       "componenets, reverting to the main file.")
                 self.create_at_sensor_rad_files(components=False,path=path)
@@ -571,7 +571,7 @@ class DGImage(GeoImage):
                 flist_for_vrt = []
                 for yi,yv in enumerate(self.files.dfile_tiles):
                     x = GeoImage(yv)
-                    fl = list(os.path.splitext(x.files.fin))
+                    fl = list(os.path.splitext(x.files.dfile))
                     if path:
                         bn = os.path.basename(fl[0])
                         fl[0] = os.path.join(path, bn)
@@ -581,7 +581,7 @@ class DGImage(GeoImage):
                     x.write_img_like_this(new_fname,data)
                     x=None
                 # Create the vrt
-                tmp = list(os.path.splitext(self.files.fin))
+                tmp = list(os.path.splitext(self.files.dfile))
                 if path:
                     bn = os.path.basename(tmp[0])
                     tmp[0] = os.path.join(path, bn)
@@ -607,7 +607,7 @@ class DGImage(GeoImage):
         #Convert to files, each component if requested.
         if not components:
             # Create single file from image data
-            fl = list(os.path.splitext(self.files.fin))
+            fl = list(os.path.splitext(self.files.dfile))
             if path:
                 bn = os.path.basename(fl[0])
                 fl[0] = os.path.join(path, bn)
@@ -626,7 +626,7 @@ class DGImage(GeoImage):
                 flist_for_vrt = []
                 for yi,yv in enumerate(self.files.dfile_tiles):
                     x = GeoImage(yv)
-                    fl = list(os.path.splitext(x.files.fin))
+                    fl = list(os.path.splitext(x.files.dfile))
                     if path:
                         bn = os.path.basename(fl[0])
                         fl[0] = os.path.join(path, bn)
@@ -636,7 +636,7 @@ class DGImage(GeoImage):
                     x.write_img_like_this(new_fname,data)
                     x=None
                 # Create the vrt
-                tmp = list(os.path.splitext(self.files.fin))
+                tmp = list(os.path.splitext(self.files.dfile))
                 if path:
                     bn = os.path.basename(tmp[0])
                     tmp[0] = os.path.join(path, bn)
@@ -672,8 +672,8 @@ class DGImage(GeoImage):
 
         # Check that the request is not a .VRT file - I don't think dgacomp
         # can handle that
-        assert (os.path.splitext(self.files.fin)[-1] != '.VRT') and \
-               (os.path.splitext(self.files.fin)[-1] != '.vrt'), \
+        assert (os.path.splitext(self.files.dfile)[-1] != '.VRT') and \
+               (os.path.splitext(self.files.dfile)[-1] != '.vrt'), \
                "DGAComp doesn't handle VRT files.  Can you pass in the " \
                "TIL file?"
 
@@ -683,8 +683,8 @@ class DGImage(GeoImage):
         # Catch the approriate call for each spectral type
         if self.meta_dg.IMD.BANDID == const.DG_BANDID['IMDXML'][0]: #PAN
             assert ms_aod_map, "An ms_aod_map must be passed for PAN data."
-            inFile = self.files.fin
-            tmp = os.path.splitext(self.files.fin)
+            inFile = self.files.dfile
+            tmp = os.path.splitext(self.files.dfile)
             if path:
                 x = os.path.join(path, os.path.basename(tmp[0]))
             else:
@@ -692,8 +692,8 @@ class DGImage(GeoImage):
             outFile = x + const.DG_SPEC['DGACOMP_IMGS'][0]
             aodFile = ms_aod_map
         elif self.meta_dg.IMD.BANDID == const.DG_BANDID['IMDXML'][1]: #MS
-            inFile = self.files.fin
-            tmp = os.path.splitext(self.files.fin)
+            inFile = self.files.dfile
+            tmp = os.path.splitext(self.files.dfile)
             if path:
                 x = os.path.join(path, os.path.basename(tmp[0]))
             else:
@@ -701,8 +701,8 @@ class DGImage(GeoImage):
             outFile = x + const.DG_SPEC['DGACOMP_IMGS'][0]
         elif self.meta_dg.IMD.BANDID == const.DG_BANDID['IMDXML'][2]: #SWIR
             assert ms_aod_map, "An ms_aod_map must be passed for SWIR data."
-            inFile = self.files.fin
-            tmp = os.path.splitext(self.files.fin)
+            inFile = self.files.dfile
+            tmp = os.path.splitext(self.files.dfile)
             if path:
                 x = os.path.join(path, os.path.basename(tmp[0]))
             else:
