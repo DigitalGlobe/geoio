@@ -247,8 +247,10 @@ class GeoImage(object):
 
             vvv = gdal.Open(file_temp.name)
 
-            # Create MEM copy of VRT
-            drv = gdal.GetDriverByName('MEM')
+            # Create MEM copy of VRT - created "in memory" by passing an empty
+            # file name string to the VRT driver.  If I used the "MEM" driver,
+            # the full dataset would be read into memory on creation.
+            drv = gdal.GetDriverByName('VRT')
             obj = drv.CreateCopy('',vvv)
 
             # Delete VRT
