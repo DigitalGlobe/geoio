@@ -295,7 +295,7 @@ class DGImage(GeoImage):
             if tif_file:
                 tmp_files.remove(tif_file[0])
 
-        return self._populate_file_and_tiles(tmp_files[0],build_vrt=False)
+        return self._populate_file_and_tiles(tmp_files[0])
 
     def populate_img_datetime_obj_local(self,w=None):
         ## Get the time/date at the image collect location

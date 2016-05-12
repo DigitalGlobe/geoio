@@ -585,36 +585,16 @@ class GeoImage(object):
         of the specified component."""
 
         if component is not None:
-            ##
             if component == 0:
                 raise ValueError("Component should be specified as based 1.")
-            ##
-            # I think it is ok to call a single tile with component!
-            #if not tt.files.filter(self.meta_geoimg.file_name,
-            #                       ["*.vrt","*.til"],case_sensitive=False):
-            #    raise ValueError("Component value is only valid when the "
-            #                     "file is a VRT or TIL file.")
-            ##
-            # This shouldn't be triggered since til is converted to vrt
-            # if tt.files.filter(self.meta_geoimg.file_name,['*.til'],
-            #                                          case_sensitive=False):
-            if os.path.splitext(self.files.dfile)[1].upper() == '.TIL':
-                raise ValueError("TIL file handling is not complete.")
-            flist = [x for x in self.meta_geoimg.file_list if not
-                                    tt.files.filter(x, ['*.vrt', '*.til'],
-                                                    case_sensitive=False)]
-            ##
+
             if component > len(self.files.dfile_tiles):
                 raise ValueError("You've requested a component value greater "
                                  "than the number available.")
-            # flist = [x for x in self.meta_geoimg.file_list if x not in
-            #                                     self.meta_geoimg.file_name]
-            # if component-1 > len(flist):
-            #     raise ValueError("You've requested a component value greater "
-            #                      "than the number available.")
 
             y = GeoImage(self.files.dfile_tiles[component-1])
-            print('returning data from:  '+str(flist[component-1]))
+            print('returning data from:  '+
+                  str(self.files.dfile_tiles[component-1]))
             obj = y._fobj
         else:
             obj = self._fobj
