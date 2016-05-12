@@ -157,7 +157,10 @@ class GeoImage(object):
             message = ', '.join([str(su[y]) for y in prefixes[x][0]])
             message = message+prefixes[x][1]
 
-            sss = sss+wrapper.fill(message)+'\n'
+            if message:
+                sss = sss+wrapper.fill(message)+'\n'
+            else:
+                sss = sss+prefix+'\n'
 
         return sss
 
@@ -165,14 +168,12 @@ class GeoImage(object):
         """ Get image metadata."""
         meta_geoimg_dict = read_geo_file_info(self._fobj)
 
-        # Need to handle case of .TIL that results a gdal MEM obj of a VRT.
-        # In this case, file_name and file_list will be emptry when returned
-        # from the gdal driver above.
-        if (meta_geoimg_dict['file_name'] == '') and \
-           (meta_geoimg_dict['file_list'] == None):
+        # Need to handle case of a .TIL that results an in memory VRT.
+        # In this case, file_name will be the VRT string when returned
+        # from the gdal driver above and does not print well or return the
+        # intended information.
+        if not os.path.isfile(meta_geoimg_dict['file_name']):
             meta_geoimg_dict['file_name'] = self.files.dfile
-            meta_geoimg_dict['file_list'] = \
-                [self.files.dfile] + self.files.dfile_tiles
 
         ### OrderedBunch the metadata from the read_geo_file_info dictionary
         self.meta_geoimg = tt.bunch.OrderedBunch(meta_geoimg_dict)
@@ -223,8 +224,8 @@ class GeoImage(object):
         # Need to handle .TIL files specifically because gdal does not fully
         # support them.
         if tt.files.filter(dfile, '*.TIL', case_sensitive=False):
-            # If this is a .TIL file, then create a VRT, create a MEM obj,
-            # and then remove the file on disk.
+            # If this is a .TIL file, then create a VRT, copy it to an
+            # "in memory" obj and then remove the VRT file from disk.
 
             # Get a temporary file
             file_temp = tempfile.NamedTemporaryFile(suffix=".VRT")
@@ -869,8 +870,6 @@ class GeoImage(object):
 
         if gdal_driver_name is None:
             gdal_driver_name = self.meta_geoimg.driver_name
-
-        import ipdb; ipdb.set_trace()
 
         ## Write the geo image using my geoio function
         # NDV set to 0 by default in create_geo_image
