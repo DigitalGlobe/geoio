@@ -79,25 +79,18 @@ class GeoImage(object):
         # Create files dictionary to populate - this will be bunched later
         #!# self.files_dict = {}
         self.files = tt.bunch.OrderedBunch({})
-        #!# self.meta_file_in = ifile #ToDo drop this in another session - it
-        # will probably break a few places, but it is now a duplicate
-        #!# self.files_dict['fin'] = ifile
-        self.files.fin = ifile
 
         # Set the place to store/retrive derived files (i.e. spectral data)
         if derived_dir:
             assert os.path.isdir(derived_dir), \
                 "The requested derived data directory does not exist."
-            tmp = os.path.join(derived_dir, '')
-            assert os.access(tmp, os.W_OK), \
+            assert os.access(os.path.join(derived_dir, ''), os.W_OK), \
                 "Write access is required for the requested location passed " \
                 "into derived_store_dir."
-            self.derived_dir = tmp
-            del tmp
+            self.derived_dir = os.path.join(derived_dir, '')
         else:
-            tmp = os.path.dirname(self.files.fin)
-            if os.access(tmp, os.W_OK):
-                self.files.derived_dir = tmp
+            if os.access(fdir, os.W_OK):
+                self.files.derived_dir = fdir
             else:
                 # Leave self.files.derived_dir unset
                 warnings.warn("The input file location is not writable.  "
@@ -106,7 +99,6 @@ class GeoImage(object):
                               "need to be provided or the object can be "
                               "reinstantiated with a writable location passed "
                               "to the input variable dervied_store_dir.")
-            del tmp
 
         ### Setup the dataset and subdataset variables
         (tmpfile,tmptiles)=self._populate_file_and_tiles(ifile)
@@ -172,6 +164,15 @@ class GeoImage(object):
     def _get_img_metadata(self):
         """ Get image metadata."""
         meta_geoimg_dict = read_geo_file_info(self._fobj)
+
+        # Need to handle case of .TIL that results a gdal MEM obj of a VRT.
+        # In this case, file_name and file_list will be emptry when returned
+        # from the gdal driver above.
+        if (meta_geoimg_dict['file_name'] == '') and \
+           (meta_geoimg_dict['file_list'] == None):
+            meta_geoimg_dict['file_name'] = self.files.dfile
+            meta_geoimg_dict['file_list'] = \
+                [self.files.dfile] + self.files.dfile_tiles
 
         ### OrderedBunch the metadata from the read_geo_file_info dictionary
         self.meta_geoimg = tt.bunch.OrderedBunch(meta_geoimg_dict)
@@ -866,6 +867,8 @@ class GeoImage(object):
 
         if gdal_driver_name is None:
             gdal_driver_name = self.meta_geoimg.driver_name
+
+        import ipdb; ipdb.set_trace()
 
         ## Write the geo image using my geoio function
         # NDV set to 0 by default in create_geo_image
