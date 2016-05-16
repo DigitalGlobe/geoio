@@ -1,9 +1,9 @@
 '''
 High level geo file image access
 
-Base GeoImage class is a thin wrapper around gdal providing easy access to
-image meta data, file read/write, and i/o.  Higher level classes (such
-as DGImage) can build on this class to provide data specific meta data and
+Base GeoImage class is a wrapper around gdal providing easy access to
+image metadata, file read/write, and i/o.  Higher level classes (such
+as DGImage) can build on this class to provide data specific metadata and
 spectral transformations.
 '''
 
@@ -42,23 +42,45 @@ class OverlapError(ValueError):
     pass
 
 class GeoImage(object):
-    """ Input can be .TIL, .VRT, OR .TIF.  If .TIL or .VRT, checking is done
-    for tiles that belong to the virtual dataset.
+    """
+    Base image class providing high-level access to image data and metadata
+    as well as methods to easily interact with the image and related
+    vector files.
 
-    meta data is stored as:
-    DGImage.meta_geoimg [populated from GeoImage class __init__]
-    DGImage.files
-            === Populated by GeoImage ===
-            -fin  [file passed in - virtual or otherwise]
-            -gdal_file_list  [GetFileList returned from gdal]
-            -dfile  [Working target data file (i.e. VRT if TIL passed,
-                        otherwise it wil be the same as fin]
-            -dfile_tiles  [The tiles of the virtual data set - if the data set
-                           isn't virtual, this should be = "files.dfile"]
+    Functionality is tested against .TIL, .VRT, and .TIF formats, but this
+    base class should support any GDAL format.
+
+    Parameters
+    ----------
+    file_in : str
+        String describing a file on disk that is of a valid input format.
+    derived_dir : str
+        The location to store files created by the class.
+
+    Attributes
+    ----------
+    files : tinytools.bunch.OrderedBunch
+        A collection of the image files used in the object.  The GeoImage
+        class populates:
+
+        -derived_dir : The directory into which create files are stored.
+        -dfile : The input image file.
+        -dfile_tiles : The tiles of the virtual data set - if the data set
+                       doesn't contain tiles, this should be equal to dfile.
+
+        Inherited classes can override/extend this listing.
+    meta_geoimg : tinytools.bunch.OrderedBunch
+        Summary metadata of the base image.
+    shape : tuple
+        shape of the image in gdal format (bands,x,y).
+    resolutions : tuple
+        length 2 tuple with resolutions of x and y image dimensions.
     """
 
     def __init__(self, file_in, derived_dir=None):
-        """Initialize class with data and meta-data from file."""
+        """Initialize class with data and meta-data from file.  __init__
+        class is in the class definition. """
+
         ## Search for files that are needed
         assert os.path.isfile(file_in), \
             "The file that was passed in does not exist."
@@ -607,10 +629,33 @@ class GeoImage(object):
 
         return window
 
-    def proj_to_raster(self, geox, geoy):
+    def proj_to_raster(self, projx, projy):
+        '''
+        Method to convert points in projection space to points in raster space.
+
+        Input can be in a variety of types as long as both the input parameters
+        are of the same type.  The method will attempt to return a data type
+        as similar as possible to the input type.
+
+        Parameters
+        ----------
+        projx : int, float, list, tuple, or numpy.ndarray
+            Input point in projected space.
+        projy : int, float, list, tuple, or numpy.ndarray
+            Input point in projected space.
+
+        Returns
+        -------
+        x : float, list, tuple, or numpy.ndarray
+            raster x value calculated from projx, projy, and the object's
+            geo_transform
+        y : float, list, tuple, or numpy.ndarray
+            raster y value calculated from projx, projy, and the object's
+            geo_transform
+        '''
 
         # This method can't handle mixed types
-        if type(geox) != type(geoy):
+        if type(projx) != type(projy):
             raise ValueError('The type of x and y should be the same and '
                              'either integers, float, tuples, lists, or '
                              'numpy arrays.')
@@ -618,28 +663,28 @@ class GeoImage(object):
         # Determine input type so that the conversion back can be done
         # on return
         intype = 0
-        if not hasattr(geox, '__iter__'):
+        if not hasattr(projx, '__iter__'):
             intype = 1
-        elif isinstance(geox, list):
+        elif isinstance(projx, list):
             intype = 2
-        elif isinstance(geox, tuple):
+        elif isinstance(projx, tuple):
             intype = 3
-        elif isinstance(geox, np.ndarray):
+        elif isinstance(projx, np.ndarray):
             intype = 4
         else:
             raise ValueError("The input type was not recognized.")
 
         # Convert to numpy arrays for the calculation
-        geox = np.asarray(geox)
-        geoy = np.asarray(geoy)
+        projx = np.asarray(projx)
+        projy = np.asarray(projy)
 
         # Get geo_transform from object
         gm = self.meta_geoimg.geo_transform
 
         # Transform per inverse of http://www.gdal.org/gdal_datamodel.html
-        x = (gm[5] * (geox - gm[0]) - gm[2] * (geoy - gm[3])) / \
+        x = (gm[5] * (projx - gm[0]) - gm[2] * (projy - gm[3])) / \
             (gm[5] * gm[1] + gm[4] * gm[2])
-        y = (geoy - gm[3] - x * gm[4]) / gm[5]
+        y = (projy - gm[3] - x * gm[4]) / gm[5]
 
         # Return to input type
         if intype == 1:
@@ -652,6 +697,29 @@ class GeoImage(object):
             return x, y
 
     def raster_to_proj(self, x, y):
+        '''
+        Method to convert points in raster space to points in projection space.
+
+        Input can be in a variety of types as long as both the input parameters
+        are of the same type.  The method will attempt to return a data type
+        as similar as possible to the input type.
+
+        Parameters
+        ----------
+        x : int, float, list, tuple, or numpy.ndarray
+            Input point in raster space.
+        y : int, float, list, tuple, or numpy.ndarray
+            Input point in raster space.
+
+        Returns
+        -------
+        projx : float, list, tuple, or numpy.ndarray
+            projection x value calculated from x, y, and the object's
+            geo_transform
+        projy : float, list, tuple, or numpy.ndarray
+            projection y value calculated from x, y, and the object's
+            geo_transform
+        '''
 
         # This method can't handle mixed types
         if type(x) != type(y):
@@ -681,18 +749,18 @@ class GeoImage(object):
         gm = self.meta_geoimg.geo_transform
 
         # Transform per http://www.gdal.org/gdal_datamodel.html
-        geox = gm[0] + gm[1] * x + gm[2] * y
-        geoy = gm[3] + gm[4] * x + gm[5] * y
+        projx = gm[0] + gm[1] * x + gm[2] * y
+        projy = gm[3] + gm[4] * x + gm[5] * y
 
         # Return to input type
         if intype == 1:
-            return float(geox), float(geoy)
+            return float(projx), float(projy)
         elif intype == 2:
-            return list(geox), list(geoy)
+            return list(projx), list(projy)
         elif intype == 3:
-            return tuple(geox), tuple(geoy)
+            return tuple(projx), tuple(projy)
         elif intype == 4:
-            return geox, geoy
+            return projx, projy
 
     def get_data(self, component = None,
                        bands = None,
