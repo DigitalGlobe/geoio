@@ -80,8 +80,8 @@ class GeoImage(object):
         class is in the class definition. """
 
         ## Search for files that are needed
-        assert os.path.isfile(file_in), \
-            "The file that was passed in does not exist."
+        if not os.path.isfile(file_in):
+            raise ValueError("The file that was passed in does not exist.")
 
         ## Start populating files dictionary for geoimage info
         # ... variables created here:
@@ -103,17 +103,18 @@ class GeoImage(object):
 
         # Set the place to store/retrive derived files (i.e. spectral data)
         if derived_dir:
-            assert os.path.isdir(derived_dir), \
-                "The requested derived data directory does not exist."
-            assert os.access(os.path.join(derived_dir, ''), os.W_OK), \
-                "Write access is required for the requested location passed " \
-                "into derived_store_dir."
-            self.derived_dir = os.path.join(derived_dir, '')
+            if not os.path.isdir(derived_dir):
+                raise ValueError("The requested derived data directory does "
+                                 "not exist.")
+            if not os.access(os.path.join(derived_dir, ''), os.W_OK):
+                raise ValueError("Write access is required for the requested "
+                                 "location passed into derived_dir.")
+            self.files.derived_dir = os.path.join(derived_dir, '')
         else:
             if os.access(fdir, os.W_OK):
                 self.files.derived_dir = fdir
             else:
-                # Leave self.files.derived_dir unset
+                self.files.derived_dir = fdir
                 warnings.warn("The input file location is not writable.  "
                               "Derived file creation (i.e. spectral files) "
                               "will not be available. Either write permissions "
@@ -1023,12 +1024,12 @@ class GeoImage(object):
             raise ValueError("This can't handle Arrays larger than three "
                              "dimensions.")
 
-        # Check that the dims of this operation are valid
-        assert (np_array.shape[1] == self.shape[2]) and \
-               (np_array.shape[2] == self.shape[1]), \
-            "Data in is not the same size as that in the current image " \
-            "object.  Data in is shape: %s, Object shape is: %s" \
-            % (np_array.shape,self.shape)
+        if not ((np_array.shape[1] == self.shape[2]) and \
+                (np_array.shape[2] == self.shape[1])):
+            raise ValueError("Data in is not the same size as that in the "
+                             "current image object.  Data in is shape: %s, "
+                             "Object shape is: %s" %
+                             (np_array.shape, self.shape))
 
         if gdal_driver_name is None:
             gdal_driver_name = self.meta_geoimg.driver_name
@@ -1068,17 +1069,19 @@ class GeoImage(object):
         data in place - so all metadata is intact.
         """
         # All dims must be exact
-        assert (np_array.shape[0] == self.shape[0]) and \
-               (np_array.shape[1] == self.shape[2]) and \
-               (np_array.shape[2] == self.shape[1]), \
-            "Data in is not the same shape as that in the current image " \
-            "object.  Data in is shape: %s, Object shape is: %s" \
-            % (np_array.shape,self.shape)
+        if not ((np_array.shape[0] == self.shape[0]) and \
+                (np_array.shape[1] == self.shape[2]) and \
+                (np_array.shape[2] == self.shape[1])):
+            raise ValueError("Data in is not the same shape as that in the "
+                             "current image object.  Data in is shape: %s, "
+                             "Object shape is: %s" %
+                             (np_array.shape, self.shape))
 
         # Check that the incoming array is the same dtype as the image.
         gi_dtype = self.meta_geoimg.data_type
-        assert (np_array.dtype == const.DICT_GDAL_TO_NP[gi_dtype]), \
-            "Data types must match exactly to do a data replace."
+        if not (np_array.dtype == const.DICT_GDAL_TO_NP[gi_dtype]):
+            raise ValueError("Data types must match exactly to do a "
+                             "data replace.")
 
         # Reload gdal object in update mode
         reload_fname = self.meta_fname

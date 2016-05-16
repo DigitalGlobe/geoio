@@ -92,9 +92,9 @@ class DGImage(GeoImage):
             found_mfiles = tt.files.filter(flist,'*'+e,case_sensitive=False)
             self.files.meta = self.files.meta + found_mfiles
 
-        assert self.files.meta, "Failed to find any DigitalGlobe " \
-                                "metadata files when " \
-                                "initializing the DGImage Object."
+        if not self.files.meta:
+            raise ValueError("Failed to find any DigitalGlobe metadata "
+                             "files when initializing the DGImage Object."
 
         ## Read DG metadata files
         if tt.files.filter(self.files.meta[0], '*.XML', case_sensitive=False):
@@ -287,9 +287,10 @@ class DGImage(GeoImage):
         if not tmp_files:
             return (None,[])
 
-        assert len(tmp_files) <= 2, "There should be no more than two files " \
-                                    "returned for the supported file types " \
-                                    "(TIL, VRT, TIF, ENVI)."
+        if not (len(tmp_files) <= 2):
+            raise ValueError("There should be no more than two files "
+                             "returned for the supported file types (TIL, "
+                             "VRT, TIF, ENVI)."
         if len(tmp_files) == 2:
             tif_file = tt.files.filter(tmp_files, '*.TIF')
             if tif_file:
@@ -672,17 +673,18 @@ class DGImage(GeoImage):
 
         # Check that the request is not a .VRT file - I don't think dgacomp
         # can handle that
-        assert (os.path.splitext(self.files.dfile)[-1] != '.VRT') and \
-               (os.path.splitext(self.files.dfile)[-1] != '.vrt'), \
-               "DGAComp doesn't handle VRT files.  Can you pass in the " \
-               "TIL file?"
+        if not ((os.path.splitext(self.files.dfile)[-1] != '.VRT') and \
+                (os.path.splitext(self.files.dfile)[-1] != '.vrt')):
+            raise ValueError("DGAComp doesn't handle VRT files.  Can you "
+                             "pass in the TIL file?")
 
         if (not path) & hasattr(self,'derived_dir'):
             path=self.derived_dir
 
         # Catch the approriate call for each spectral type
         if self.meta_dg.IMD.BANDID == const.DG_BANDID['IMDXML'][0]: #PAN
-            assert ms_aod_map, "An ms_aod_map must be passed for PAN data."
+            if not ms_aod_map: raise ValueError("An ms_aod_map must be passed "
+                                                "for PAN data.")
             inFile = self.files.dfile
             tmp = os.path.splitext(self.files.dfile)
             if path:
@@ -700,7 +702,8 @@ class DGImage(GeoImage):
                 x = tmp[0]
             outFile = x + const.DG_SPEC['DGACOMP_IMGS'][0]
         elif self.meta_dg.IMD.BANDID == const.DG_BANDID['IMDXML'][2]: #SWIR
-            assert ms_aod_map, "An ms_aod_map must be passed for SWIR data."
+            if not ms_aod_map: raise ValueError("An ms_aod_map must be "
+                                                "passed for SWIR data.")
             inFile = self.files.dfile
             tmp = os.path.splitext(self.files.dfile)
             if path:
@@ -718,8 +721,9 @@ class DGImage(GeoImage):
         dgacomp_wrapper = resource_filename(__name__, 'nwl_dgacomp_batch.pro')
         os.path.isfile(dgacomp_wrapper)
         print(dgacomp_wrapper)
-        assert os.path.isfile(dgacomp_wrapper), "The DGAComp wrapper files " \
-                                                "isn't present in the module."
+        if not os.path.isfile(dgacomp_wrapper):
+            raise ValueError("The DGAComp wrapper files isn't present "
+                             "in the module.")
 
         # Create command line idl call like:
         # idl -e ".run nwl_batch.pro" -args '/path/to/in_file'
