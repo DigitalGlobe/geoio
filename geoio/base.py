@@ -142,7 +142,7 @@ class GeoImage(object):
         # paradigm.
         prefixes['Extent'] = (['xstart','xend','yend','ystart'],
                                             ' (xmin, xmax, ymin, ymax)')
-        prefixes['Projection String'] = (['projection_string'],'')
+        prefixes['Projection String'] = (['pprint_projection_string'],'')
         prefixes['Geo Transform'] = (['geo_transform'],'')
         prefixes['File List'] = (['file_list'],'')
 
@@ -161,7 +161,9 @@ class GeoImage(object):
             message = ', '.join([str(su[y]) for y in prefixes[x][0]])
             message = message+prefixes[x][1]
 
-            if message:
+            if x == 'Projection String':
+                sss = sss+prefix+message.replace('\n', '\n'+' '*prelen)+'\n'
+            elif message:
                 sss = sss+wrapper.fill(message)+'\n'
             else:
                 sss = sss+prefix+'\n'
@@ -978,6 +980,9 @@ def read_geo_file_info(fname_or_fobj):
 
     ### Get image projection and datum
     summary['projection_string'] = fobj.GetProjection()
+    # Get pretty printable projection_string
+    sr = osr.SpatialReference(fobj.GetProjectionRef())
+    summary['pprint_projection_string'] = sr.ExportToPrettyWkt()
 
     return summary
 
