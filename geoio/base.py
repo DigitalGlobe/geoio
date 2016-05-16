@@ -137,7 +137,11 @@ class GeoImage(object):
         prefixes['Dimensions'] = (['nbands','x','y','pixels'],
                                   ' (nlayers, nrows, ncols, npixels)')
         prefixes['Resolution'] = (['resolution'],' (x,y)')
-        prefixes['Extent'] = (['extent'],' (xmin, xmax, ymin, ymax)')
+        # The following is inverted because xstart, xend, etc are calculated
+        # in pixel space and this is inverted from the North = max, South = min
+        # paradigm.
+        prefixes['Extent'] = (['xstart','xend','yend','ystart'],
+                                            ' (xmin, xmax, ymin, ymax)')
         prefixes['Projection String'] = (['projection_string'],'')
         prefixes['Geo Transform'] = (['geo_transform'],'')
         prefixes['File List'] = (['file_list'],'')
