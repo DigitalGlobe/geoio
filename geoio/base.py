@@ -283,7 +283,19 @@ class GeoImage(object):
         for x in self.iter_window():
             yield x
 
-    def iter_window(self,win_size=None,stride=None,**kwargs):
+    def iter_window(self, win_size=None, stride=None,**kwargs):
+        """Chip iterator.
+           
+           Args:
+               win_size (list): Chip x and y dimensions.
+               stride (list): Step x and y dimensions. If stride=None
+                              and win_size is not None, then win_size 
+                              is used as the stride.
+               **kwargs: Optional arguments for get_data().
+
+           Returns:
+               Integer array of pixel intensities.
+        """
 
         # Check input values
         if win_size:
@@ -310,14 +322,13 @@ class GeoImage(object):
             xoff = 0
             yoff = 0
             xoff_start = xoff
-            xsize = win_size[0]
-            ysize = win_size[1]
+            xsize, ysize = win_size
             while True:
                 yield self.get_data(window=[xoff, yoff, xsize, ysize],**kwargs)
-                xoff = xoff + win_size[0]
+                xoff += xsize
                 if xoff > self.meta_geoimg.x:
                     xoff = xoff_start
-                    yoff = yoff + win_size[1]
+                    yoff += ysize
                 if yoff > self.meta_geoimg.y:
                     break
 
@@ -336,19 +347,52 @@ class GeoImage(object):
             # Find starting offset
             xs = self.meta_geoimg.x
             ys = self.meta_geoimg.y
-            xoff = int(round(((xs - round(win_size[0])) % stride[0])/2.0))
-            yoff = int(round(((ys - round(win_size[1])) % stride[1])/2.0))
+            xsize, ysize = win_size
+            xstride, ystride = stride
+            xoff = int(round(((xs - round(xsize)) % xstride)/2.0))
+            yoff = int(round(((ys - round(ysize)) % ystride)/2.0))
             xoff_start = xoff
-            xsize = win_size[0]
-            ysize = win_size[1]
             while True:
                 yield self.get_data(window=[xoff, yoff, xsize, ysize], **kwargs)
-                xoff = xoff + stride[0]
+                xoff += xstride
                 if xoff > self.meta_geoimg.x:
                     xoff = xoff_start
-                    yoff = yoff + stride[1]
+                    yoff += ystride
                 if yoff > self.meta_geoimg.y:
                     break
+
+
+    def iter_window_random(self, win_size=None, no_chips=1000, **kwargs):
+        """Random chip iterator.
+          
+           Args:
+               win_size (list): Chip x and y dimensions.
+               no_chips (int): Number of chips.
+               **kwargs: Optional arguments for get_data().
+
+           Yields:
+               Integer array of pixel intensities.       
+        """
+
+        # Check input values
+        if win_size:
+            if any(x <= 0 for x in win_size):
+                raise ValueError('No value in win_size can be equal '
+                                 'to or less than zero.')
+
+        counter = no_chips
+        xs = self.meta_geoimg.x
+        ys = self.meta_geoimg.y
+        xsize, ysize = win_size
+
+        while True:
+            # select random offset
+            xoff = np.random.randint(xs-xsize+1)
+            yoff = np.random.randint(ys-ysize+1)
+            yield self.get_data(window=[xoff, yoff, xsize, ysize], **kwargs)
+            counter -= 1
+            if counter == 0: break
+
 
     def iter_components(self, **kwargs):
         """This is a convenience method that iterataes (via yield) through
@@ -357,6 +401,7 @@ class GeoImage(object):
 
         for c in xrange(len(self.files.dfile_tiles)):
             yield self.get_data(component=c, **kwargs)
+
 
     def iter_vector(self, vector=None, properties=False, filter=None, **kwargs):
         """This method iterates (via yeild) through a vector object or file.
