@@ -10,8 +10,6 @@ spectral transformations.
 from __future__ import division
 
 from osgeo import gdal, gdalconst, osr, ogr
-gdal.UseExceptions()
-ogr.UseExceptions()
 import numpy as np
 import os
 import warnings
@@ -20,19 +18,16 @@ import textwrap
 import tempfile
 import logging
 import math
-
-try:
-    # use logging to silence some import messages from tzwhere
-    logging.disable(logging.CRITICAL)
-    from tzwhere import tzwhere
-    logging.disable(logging.NOTSET)
-except:
-    print("tzwhere import failed, local time zone convert not available.")
-
-# Local
+from tzwhere import tzwhere
 import tinytools as tt
+
+# package import
 import constants as const
 
+# Module setup
+gdal.UseExceptions()
+ogr.UseExceptions()
+logger = logging.getLogger(__name__)
 
 class OverlapError(ValueError):
     '''Raise when the window does not overlap the image.  This can be
@@ -590,22 +585,7 @@ class GeoImage(object):
             ul_img = ul_vec
             lr_img = lr_vec
 
-        # print('vector geo extent:')
-        # print(ul_vec)
-        # print(lr_vec)
-        #
-        # print('image geo extent:')
-        # print(ul_img)
-        # print(lr_img)
-        #
-        # print('geo transform:')
-        # print(self.meta_geoimg.geo_transform)
-
         xs,ys = self.proj_to_raster(*zip(*[ul_img,lr_img]))
-
-        # print('raster xy extent')
-        # print(ul_xy)
-        # print(lr_xy)
 
         xoff = int(math.floor(min(xs)))
         yoff = int(math.floor(min(ys)))
@@ -617,8 +597,13 @@ class GeoImage(object):
         win_ysize = ymax-yoff
 
         window = [xoff, yoff, win_xsize, win_ysize]
-        # print('requested window:')
-        # print(window)
+
+        # Logging info if needed
+        logger.debug('vector geo extent...\n\t%s\n\t%s',ul_vec,lr_vec)
+        logger.debug('image geo extent...\n\t%s\n\t%s',ul_img,lr_img)
+        logger.debug('geo transform...\n\t%s',self.meta_geoimg.geo_transform)
+        logger.debug('raster xy extent...\n\t%s,\n\t%s',xs,ys)
+        logger.debug('requested window...\n\t%s',window)
 
         if ((xoff + win_xsize <= 0) or (yoff + win_ysize <= 0) or
             (xoff > self.meta_geoimg.x) or (yoff > self.meta_geoimg.y)):
