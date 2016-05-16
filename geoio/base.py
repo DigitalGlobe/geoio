@@ -19,6 +19,7 @@ import collections
 import textwrap
 import tempfile
 import logging
+import math
 
 try:
     # use logging to silence some import messages from tzwhere
@@ -533,18 +534,20 @@ class GeoImage(object):
         # print('geo transform:')
         # print(self.meta_geoimg.geo_transform)
 
-        gt = self.meta_geoimg.geo_transform
-        ul_xy = self._world2Pixel(gt, ul_img[0], ul_img[1])
-        lr_xy = self._world2Pixel(gt, lr_img[0], lr_img[1])
+        xs,ys = self.proj_to_raster(*zip(*[ul_img,lr_img]))
 
         # print('raster xy extent')
         # print(ul_xy)
         # print(lr_xy)
 
-        xoff = min(ul_xy[0], lr_xy[0])
-        yoff = min(ul_xy[1], lr_xy[1])
-        win_xsize = abs(ul_xy[0] - lr_xy[0])
-        win_ysize = abs(ul_xy[1] - lr_xy[1])
+        xoff = int(math.floor(min(xs)))
+        yoff = int(math.floor(min(ys)))
+
+        xmax = int(math.ceil(max(xs)))
+        ymax = int(math.ceil(max(ys)))
+
+        win_xsize = xmax-xoff
+        win_ysize = ymax-yoff
 
         window = [xoff, yoff, win_xsize, win_ysize]
         # print('requested window:')
@@ -559,20 +562,92 @@ class GeoImage(object):
 
         return window
 
-    def _world2Pixel(self, geoMatrix, x, y):
-        """
-        Uses a gdal geomatrix (gdal.GetGeoTransform()) to calculate
-        the pixel location of a geospatial coordinate
-        """
-        ulX = geoMatrix[0]
-        ulY = geoMatrix[3]
-        xDist = geoMatrix[1]
-        yDist = geoMatrix[5]
-        rtnX = geoMatrix[2]
-        rtnY = geoMatrix[4]
-        pixel = int((x - ulX) / xDist)
-        line = int((ulY - y) / xDist)
-        return (pixel, line)
+    def proj_to_raster(self, geox, geoy):
+
+        # This method can't handle mixed types
+        if type(geox) != type(geoy):
+            raise ValueError('The type of x and y should be the same and '
+                             'either integers, float, tuples, lists, or '
+                             'numpy arrays.')
+
+        # Determine input type so that the conversion back can be done
+        # on return
+        intype = 0
+        if not hasattr(geox, '__iter__'):
+            intype = 1
+        elif isinstance(geox, list):
+            intype = 2
+        elif isinstance(geox, tuple):
+            intype = 3
+        elif isinstance(geox, np.ndarray):
+            intype = 4
+        else:
+            raise ValueError("The input type was not recognized.")
+
+        # Convert to numpy arrays for the calculation
+        geox = np.asarray(geox)
+        geoy = np.asarray(geoy)
+
+        # Get geo_transform from object
+        gm = self.meta_geoimg.geo_transform
+
+        # Transform per inverse of http://www.gdal.org/gdal_datamodel.html
+        x = (gm[5] * (geox - gm[0]) - gm[2] * (geoy - gm[3])) / \
+            (gm[5] * gm[1] + gm[4] * gm[2])
+        y = (geoy - gm[3] - x * gm[4]) / gm[5]
+
+        # Return to input type
+        if intype == 1:
+            return float(x), float(y)
+        elif intype == 2:
+            return list(x), list(y)
+        elif intype == 3:
+            return tuple(x), tuple(y)
+        elif intype == 4:
+            return x, y
+
+    def raster_to_proj(self, x, y):
+
+        # This method can't handle mixed types
+        if type(x) != type(y):
+            raise ValueError('The type of x and y should be the same and '
+                             'either integers, float, tuples, lists, or '
+                             'numpy arrays.')
+
+        # Determine input type so that the conversion back can be done
+        # on return
+        intype = 0
+        if not hasattr(x, '__iter__'):
+            intype = 1
+        elif isinstance(x, list):
+            intype = 2
+        elif isinstance(x, tuple):
+            intype = 3
+        elif isinstance(x, np.ndarray):
+            intype = 4
+        else:
+            raise ValueError("The input type was not recognized.")
+
+        # Convert to numpy arrays for the calculation
+        x = np.asarray(x)
+        y = np.asarray(y)
+
+        # Get geo_transform from object
+        gm = self.meta_geoimg.geo_transform
+
+        # Transform per http://www.gdal.org/gdal_datamodel.html
+        geox = gm[0] + gm[1] * x + gm[2] * y
+        geoy = gm[3] + gm[4] * x + gm[5] * y
+
+        # Return to input type
+        if intype == 1:
+            return float(geox), float(geoy)
+        elif intype == 2:
+            return list(geox), list(geoy)
+        elif intype == 3:
+            return tuple(geox), tuple(geoy)
+        elif intype == 4:
+            return geox, geoy
 
     def get_data(self, component = None,
                        bands = None,
