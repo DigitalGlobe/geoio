@@ -28,6 +28,9 @@ import constants as const
 gdal.UseExceptions()
 ogr.UseExceptions()
 logger = logging.getLogger(__name__)
+# To get access to logging statements from the command line:
+# import logging
+# logging.basicConfig(level=logging.DEBUG) # or your desired level
 
 class OverlapError(ValueError):
     '''Raise when the window does not overlap the image.  This can be
