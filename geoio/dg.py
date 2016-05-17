@@ -1,7 +1,16 @@
+'''
+This module contains handler classes for DigitalGlobe imagery.  Includes XML and
+PVL (IMD, etc) meta data handling, image date retrieval (UTC to local via
+tzwhere), and spectral processing built on top of the GeoImage class
+capabilities.
+'''
+
+
 import collections
 import datetime
 import os
 import re
+import logging
 
 import ephem
 import numpy as np
@@ -14,15 +23,11 @@ import tinytools as tt
 from base import GeoImage
 import constants as const
 
-'''
-This module contains handler classes for DigitalGlobe imagery.  Includes XML and
-PVL (IMD, etc) meta data handling, image date retrieval (UTC to local via
-tzwhere), and spectral processing built on top of the GeoImage class
-capabilities.
-'''
-
-# ToDo: Add capability to write .TIL files, it currently falls back to VRT when
-# write methods are called from a class instantiated with a .TIL object.
+# Module setup
+logger = logging.getLogger(__name__)
+# To get access to logging statements from the command line:
+# import logging
+# logging.basicConfig(level=logging.DEBUG) # or your desired level
 
 class DGImage(GeoImage):
     """ Input can be .TIL, .VRT, OR .TIF.  If .TIL or .VRT, checking is done
@@ -300,9 +305,9 @@ class DGImage(GeoImage):
 
     def populate_img_datetime_obj_local(self,w=None):
         ## Get the time/date at the image collect location
-        print('')
-        print('Adding self.img_datetime_obj_local to obj data members.')
-        print('')
+        logger.debug('')
+        logger.debug('Adding self.img_datetime_obj_local to obj data members.')
+        logger.debug('')
         try:
             self.img_tz = w.tzNameAt(self.meta_dg_quick.latlonhae[0],
                                      self.meta_dg_quick.latlonhae[1])
@@ -313,8 +318,8 @@ class DGImage(GeoImage):
             # timezone database or a module that wraps one instead of '
             # the json file.'
             ###
-            #print('')
-            print('Opening a tzwhere instance for access to the json file.  '
+            #logger.debug('')
+            logger.debug('Opening a tzwhere instance for access to the json file.  '
                   'This is slow!  You can pass in a pregenerated instance '
                   'of the json database to the variable w in order to speed '
                   'up the processing of multiple images.  This is done by '
@@ -322,14 +327,14 @@ class DGImage(GeoImage):
                   'then creating the instance using "w=tzwhere.tzwhere()"  '
                   'See notes in code for possible development to improve '
                   'speed if needed.')
-            print('')
+            logger.debug('')
             w = tzwhere.tzwhere()
             self.meta_dg_quick.img_tz = w.tzNameAt(
                                             self.meta_dg_quick.latlonhae[0],
                                             self.meta_dg_quick.latlonhae[1])
             if not self.meta_dg_quick.img_tz:
-                print('')
-                print('No time zone code returned, this location may be in '
+                logger.debug('')
+                logger.debug('No time zone code returned, this location may be in '
                       'the middle of the ocean.  Defaulting to a simple '
                       'latitude based time zone calculation.')
                 offset = self._calc_gmtoffset(self.meta_dg_quick.latlonhae[1])
@@ -564,7 +569,7 @@ class DGImage(GeoImage):
             self.dg_img_rad = new_fname
         elif components:
             if (self.files.dfile_tiles[0] == self.files.dfile):
-                print("This data set does not appear to have "
+                logger.debug("This data set does not appear to have "
                       "componenets, reverting to the main file.")
                 self.create_at_sensor_rad_files(components=False,path=path)
             else:
@@ -619,7 +624,7 @@ class DGImage(GeoImage):
             self.dg_img_rad = new_fname
         elif components:
             if (self.files.dfile_tiles[0] == self.files.dfile):
-                print("This data set does not appear to have "
+                logger.debug("This data set does not appear to have "
                       "componenets, reverting to the main file.")
                 self.create_toa_ref_files(components=False,path=path)
             else:
@@ -668,7 +673,7 @@ class DGImage(GeoImage):
         if force_create:
             pass
         elif self.files.dgacomp:
-            print("DGAcomp files alearead exist... skipping recreation.")
+            logger.debug("DGAcomp files alearead exist... skipping recreation.")
             return
 
         # Check that the request is not a .VRT file - I don't think dgacomp
@@ -720,7 +725,7 @@ class DGImage(GeoImage):
         # Running the above with setuptools' pkg_resources
         dgacomp_wrapper = resource_filename(__name__, 'nwl_dgacomp_batch.pro')
         os.path.isfile(dgacomp_wrapper)
-        print(dgacomp_wrapper)
+        logger.debug(dgacomp_wrapper)
         if not os.path.isfile(dgacomp_wrapper):
             raise ValueError("The DGAComp wrapper files isn't present "
                              "in the module.")
@@ -768,11 +773,11 @@ class DGImage(GeoImage):
         """
 
         # Empty line for readability
-        print('')
+        logger.info('')
         if test_only:
-            print("*** NO RADIANCE FILE OPERATIONS WILL BE PERFORMED ***")
-            print("*** test_only is set to True (default) ***")
-            print("")
+            logger.info("*** NO RADIANCE FILE OPERATIONS WILL BE PERFORMED ***")
+            logger.info("*** test_only is set to True (default) ***")
+            logger.info("")
 
         # Find spectral files
         if self.files.rad in self.files.rad_tiles:
@@ -782,12 +787,12 @@ class DGImage(GeoImage):
 
         # Kick out if no files of this spectral type are present
         if rall[0] == None:
-            print("No radiance files to be deleted.")
+            logger.info("No radiance files to be deleted.")
             return
 
         # Annouce the files to be removed
-        print("Deleting radiance files:")
-        for f in rall:  print(f)
+        logger.info("Deleting radiance files:")
+        for f in rall:  logger.info(f)
 
         if test_only:
             return
@@ -805,11 +810,11 @@ class DGImage(GeoImage):
         """
 
         # Empty line for readability
-        print('')
+        logger.info('')
         if test_only:
-            print("*** NO TOA REFLECTANCE FILE OPERATIONS WILL BE PERFORMED ***")
-            print("*** test_only is set to True (default) ***")
-            print("")
+            logger.info("*** NO TOA REFLECTANCE FILE OPERATIONS WILL BE PERFORMED ***")
+            logger.info("*** test_only is set to True (default) ***")
+            logger.info("")
 
         # Find spectral files
         if self.files.toa in self.files.toa_tiles:
@@ -819,12 +824,12 @@ class DGImage(GeoImage):
 
         # Kick out if no files of this spectral type are present
         if tall[0] == None:
-            print("No TOA files to be deleted.")
+            logger.info("No TOA files to be deleted.")
             return
 
         # Print files to be operated on
-        print("Deleting TOA reflectance files:")
-        for f in tall:  print(f)
+        logger.info("Deleting TOA reflectance files:")
+        for f in tall:  logger.info(f)
 
         if test_only:
             return
@@ -842,11 +847,11 @@ class DGImage(GeoImage):
         """
 
         # Empty line for readability
-        print('')
+        logger.info('')
         if test_only:
-            print("*** NO DGACOMP FILE OPERATIONS WILL BE PERFORMED ***")
-            print("*** test_only is set to True (default) ***")
-            print("")
+            logger.info("*** NO DGACOMP FILE OPERATIONS WILL BE PERFORMED ***")
+            logger.info("*** test_only is set to True (default) ***")
+            logger.info("")
 
         # Find spectral files
         dall = []
@@ -862,12 +867,12 @@ class DGImage(GeoImage):
 
         # Kick out if no files of this spectral type are present
         if not dall:
-            print("No DGAComp files to be deleted.")
+            logger.info("No DGAComp files to be deleted.")
             return
 
         # Print files to be operated on
-        print("Deleting DGAComp files:")
-        for f in dall:  print(f)
+        logger.info("Deleting DGAComp files:")
+        for f in dall:  logger.info(f)
 
         if test_only:
             return
@@ -900,7 +905,7 @@ class DGImage(GeoImage):
 
 def parse_dg_time_str(dtstr):
     if not dtstr.endswith('Z'):
-        print dtstr
+        logger.debug(dtstr)
         raise ValueError('The date/time string retrieved from the DG '
                          'meta data file is not of the format expected.')
     # Example:  '2013-02-16T18:28:30.183342Z'
@@ -990,11 +995,11 @@ class DGImageSet(object):
         return sss
 
     def build_supercube(self):
-        print("not implemented yet")
+        logger.error("not implemented yet")
         pass
 
     def run_dg_acomp(self):
-        print("not implemented yet")
+        logger.error("not implemented yet")
         pass
 
 
@@ -1087,7 +1092,7 @@ def create_DGDelivDir_objs(spath,stupid_search=True):
         index_master = _split_master(img_rker,index_master)
 
         (set_gentm,index_gentm) = np.unique(img_gentm, return_inverse=True)
-        print(img_dirs)
+        logger.debug(img_dirs)
 
         # TODO --- actually code up this time check
         # Check that the image generation time is +/- one hour
@@ -1106,8 +1111,8 @@ def create_DGDelivDir_objs(spath,stupid_search=True):
     list_of_objs = []
     for x in set(index_master):
         pass_list=np.asarray(img_dirs)[index_master == x]
-        print(pass_list)
-        print('')
+        logger.debug(pass_list)
+        logger.debug('')
         list_of_objs.append(DGDelivDir(pass_list))
 
     return list_of_objs

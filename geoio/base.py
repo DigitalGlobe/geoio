@@ -858,7 +858,7 @@ class GeoImage(object):
                                  "than the number available.")
 
             y = GeoImage(self.files.dfile_tiles[component-1])
-            print('returning data from:  '+
+            logger.debug('returning data from:  '+
                   str(self.files.dfile_tiles[component-1]))
             obj = y._fobj
         else:
@@ -1132,15 +1132,16 @@ class GeoImage(object):
         # Output information about the new file
         f = GeoImage(new_img_name)
 
-        print('')
-        print("######################")
-        print("New image file has been created at:  "+new_img_name)
-        print("Data type is:  "+str(np_array.dtype))
+        logger.debug('')
+        logger.debug("######################")
+        logger.debug("New image file has been created at:  "+new_img_name)
+        logger.debug("Data type is:  "+str(np_array.dtype))
         if self.meta_geoimg.no_data_value:
-            print("No data value set to:  "+str(self.meta_geoimg.no_data_value))
+            logger.debug("No data value set to:  "+
+                         str(self.meta_geoimg.no_data_value))
         else:
-            print("No data value was not set.")
-        print("######################")
+            logger.debug("No data value was not set.")
+        logger.debug("######################")
 
         if return_obj:
             return f
@@ -1259,13 +1260,14 @@ def create_geo_image(new_file_name, data_np_array, gdal_driver_name,
     if gdal_driver_name == "VRT":
         # Change driver name to something that will write to disk.  This
         # defaults to GTiff but is configurable.
-        print("You have requested a VRT.  Creating a single new real file "
-              "using %s format.  This format can be ovridden in the call "
-              "using 'GTiff', 'ENVI', etc.  Eventually, this "
-              "could be replaced with a file-for-file VRT rewrite, but "
-              "that does not always make sense in VRTs since there can be "
-              "pixels in the original image (overlaps) that aren't in "
-              "the new data array.") % vrt_fallback
+        logger.debug("You have requested a VRT.  Creating a single new real "
+                     "file using %s format.  This format can be ovridden "
+                     "in the call using 'GTiff', 'ENVI', etc.  Eventually, "
+                     "this could be replaced with a file-for-file VRT "
+                     "rewrite, but that does not always make sense in VRTs "
+                     "since there can be pixels in the original image "
+                     "(overlaps) that aren't in the "
+                     "new data array.",vrt_fallback)
         gdal_driver_name = vrt_fallback
 
         # Strip ".vrt" extension if it exists and rename according to the
@@ -1326,7 +1328,6 @@ def create_geo_image(new_file_name, data_np_array, gdal_driver_name,
     ### Write the new data
     # Set nans to the original No Data Value
     if NDV is not None:
-        print NDV is None
         data_np_array[np.isnan(data_np_array)] = NDV
         data_np_array[np.isinf(data_np_array)] = NDV
         ### Other???
