@@ -342,18 +342,34 @@ class GeoImage(object):
             yield self.get_data(window=w,**kwargs)
 
     def iter_window(self, win_size=None, stride=None,**kwargs):
-        """Chip iterator.
-           
-           Args:
-               win_size (list): Chip x and y dimensions.
-               stride (list): Step x and y dimensions. If stride=None
-                              and win_size is not None, then win_size 
-                              is used as the stride.
-               **kwargs: Optional arguments for get_data().
+        '''
+        Window iterator that yields data from the image based on win_size
+        and stride.
 
-           Returns:
-               Integer array of pixel intensities.
-        """
+        win_size and stride are both optional arguments.  If neither are
+        passed, then the method pulls win_size from GDAL GetBlockSize() and
+        uses that to step through the image.  If only win_size is provided,
+        the method yields adjoining windows of the size requested.  If only
+        stride is provided, an error is rasied.
+
+        Parameters
+        ----------
+        win_size : array-like, length 2, optional
+            The size of the requested image chip in x and y.
+        stride : array-like, length 2, optional
+            The size of the step between each yielded chip in x and y.
+        kwargs: optional
+            Arguments for get_data().
+
+        Yields
+        ------
+        ndarray
+            Three dimensional numpy array of pixel values from the
+            requested region of the image.
+
+        '''
+
+        logger.debug('*** begin iter_window ***')
 
         # Check input values
         if win_size:
@@ -372,6 +388,8 @@ class GeoImage(object):
             # Get block size from gdal
             b = self._fobj.GetRasterBand(1)
             win_size = b.GetBlockSize()
+
+        logger.debug('win_size is:  %s, stride is:  %s', win_size, stride)
 
         # if win_size and NOT stride
         # set stride to make windows adjoining
@@ -402,15 +420,24 @@ class GeoImage(object):
         # if win_size and stride
         # just do it
         elif win_size and stride:
-            # Find starting offset
+            # Set vars for easy access below
             xs = self.meta_geoimg.x
             ys = self.meta_geoimg.y
             xsize, ysize = win_size
             xstride, ystride = stride
-            xoff = int(round(((xs - round(xsize)) % xstride)/2.0))
-            yoff = int(round(((ys - round(ysize)) % ystride)/2.0))
+
+            # Find starting offset by identifying pixels that don't fit in
+            # the requested size/stride and then split the different between
+            # ends of the image using floor (int) to reduce fractions.
+            x_extra_pixels = (xs - xsize) % xstride
+            xoff = int(x_extra_pixels/2.0)
+            y_extra_pixels = (ys - ysize) % ystride
+            yoff = int(y_extra_pixels/2.0)
+
+            # Start the yield loop
             xoff_start = xoff
             while True:
+                logger.debug(' xoff is %s,\tyoff is %s', xoff, yoff)
                 yield self.get_data(window=[xoff, yoff, xsize, ysize], **kwargs)
                 xoff += xstride
                 if xoff > self.meta_geoimg.x:
@@ -418,7 +445,6 @@ class GeoImage(object):
                     yoff += ystride
                 if yoff > self.meta_geoimg.y:
                     break
-
 
     def iter_window_random(self, win_size=None, no_chips=1000, **kwargs):
         """Random chip iterator.
