@@ -304,6 +304,43 @@ class GeoImage(object):
         for x in self.iter_window():
             yield x
 
+    def iter_base(self,xoff,yoff,win_xsize,win_ysize,**kwargs):
+        '''
+        Base iterator function to yield data from array-like window parameters.
+
+        Parameters
+        ----------
+        xoff : array_like
+            x offset(s) for the image regions to be read.
+        yoff : array_like
+            y offset(s) for the image regions to be read.
+        win_xsize : array_like
+            window x-dim size(s) for the image regions to be read.
+        win_ysize : array_like
+            window y-dim size(s) for the image regions to be read.
+        kwargs : optional
+            keyword arguments to be passed to get_data.
+
+        Yields
+        ------
+        ndarray
+            Three dimensional numpy array of data from the requested region
+            of the image.
+
+        '''
+
+        logger.debug('*** begin iter_base ***')
+
+        # Broadcast array_like
+        windows = np.broadcast(xoff,yoff,win_xsize,win_ysize)
+
+        # Iterate through windows generated from input parameters
+        for w in windows:
+            logger.debug('window parameters: xoff %s, yoff %s, '
+                                            'win_xsize %s, win_ysize %s',
+                                             w[0], w[1], w[2], w[3])
+            yield self.get_data(window=w,**kwargs)
+
     def iter_window(self, win_size=None, stride=None,**kwargs):
         """Chip iterator.
            
