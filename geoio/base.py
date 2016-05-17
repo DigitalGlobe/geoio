@@ -394,12 +394,24 @@ class GeoImage(object):
         # if win_size and NOT stride
         # set stride to make windows adjoining
         if win_size and not stride:
+            # Set vars for easy access below
+            xs = self.meta_geoimg.x
+            ys = self.meta_geoimg.y
+            xsize, ysize = win_size
+
+            # Find starting offsets by identifying the pixels that don't fit in
+            # the requested window blocks and then split the different
+            # between ends of the image using floor (int) to reduce fractions.
+            x_extra_pixels = xs % win_size[0]
+            xoff = int(x_extra_pixels / 2.0)
+            y_extra_pixels = ys % win_size[1]
+            yoff = int(y_extra_pixels / 2.0)
+
             # Use while True to loop through get_data until outside the image
-            xoff = 0
-            yoff = 0
             xoff_start = xoff
             xsize, ysize = win_size
             while True:
+                logger.debug(' xoff is %s,\tyoff is %s', xoff, yoff)
                 yield self.get_data(window=[xoff, yoff, xsize, ysize],**kwargs)
                 xoff += xsize
                 if xoff > self.meta_geoimg.x:
