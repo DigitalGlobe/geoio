@@ -94,7 +94,7 @@ class DGImage(GeoImage):
 
         if not self.files.meta:
             raise ValueError("Failed to find any DigitalGlobe metadata "
-                             "files when initializing the DGImage Object."
+                             "files when initializing the DGImage Object.")
 
         ## Read DG metadata files
         if tt.files.filter(self.files.meta[0], '*.XML', case_sensitive=False):
@@ -290,7 +290,7 @@ class DGImage(GeoImage):
         if not (len(tmp_files) <= 2):
             raise ValueError("There should be no more than two files "
                              "returned for the supported file types (TIL, "
-                             "VRT, TIF, ENVI)."
+                             "VRT, TIF, ENVI).")
         if len(tmp_files) == 2:
             tif_file = tt.files.filter(tmp_files, '*.TIF')
             if tif_file:
