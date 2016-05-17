@@ -460,14 +460,21 @@ class GeoImage(object):
 
     def iter_window_random(self, win_size=None, no_chips=1000, **kwargs):
         """Random chip iterator.
-          
-           Args:
-               win_size (list): Chip x and y dimensions.
-               no_chips (int): Number of chips.
-               **kwargs: Optional arguments for get_data().
 
-           Yields:
-               Integer array of pixel intensities.       
+        Parameters
+        ----------
+        win_size : array-like, length 2
+            The size of the requested image chip in x and y.
+        no_chips : int, optional
+            Number of chips to generate.
+        kwargs: optional
+            Arguments for get_data().
+
+        Yields
+        ------
+        ndarray
+            Three dimensional numpy array of pixel values from the
+            requested region of the image.
         """
 
         # Check input values
