@@ -596,6 +596,9 @@ class GeoImage(object):
             # Get the geometry to pass to get_data
             geom = feat.geometry()
 
+            # Use transform from above to put geom in image space
+            geom.Transform(coord_trans)
+
             # Catch and pass OverlapError for the iterator
             try:
                 data = self.get_data(geom=geom, **kwargs)
