@@ -123,8 +123,8 @@ class TestGeoImage_iter_vector(unittest.TestCase):
     def setUp(self):
         self.test_img = dgsamples.wv2_longmont_1k.ms
         self.img = geoio.GeoImage(self.test_img)
-        self.vec = dgsamples.wv2_longmont_1k_vectors.files[1]
-        self.badvec = dgsamples.bayou_vectors.files[2]
+        self.vec = dgsamples.wv2_longmont_1k_vectors.poly_geojson_latlon
+        self.badvec = dgsamples.bayou_vectors.poly
 
     def tearDown(self):
         # Remove gdal image object

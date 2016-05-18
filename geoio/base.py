@@ -664,7 +664,18 @@ class GeoImage(object):
         lr_vec = [maxX, minY]
 
         if coord_trans:
+            # Online dobumentation says that there could be a bug in
+            # TransformPoints - seems to be working with 1.11.4 so
+            # I'll leave it in for now.  When working with a bag vector file
+            # TransformPoints returned inf values that exploded below whereas
+            # the sequental TransformPoint returned values that triggered
+            # the overlap error below.  Leaving the single call for now
+            # as it is faster and cleaner.
             [ul_img, lr_img] = coord_trans.TransformPoints([ul_vec, lr_vec])
+            #ul_img = coord_trans.TransformPoint(*ul_vec)
+            #lr_img = coord_trans.TransformPoint(*lr_vec)
+
+            # Cut off third returned dimension (should be zero)
             ul_img = ul_img[:-1]
             lr_img = lr_img[:-1]
         else:
