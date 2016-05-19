@@ -367,6 +367,7 @@ class DGImage(GeoImage):
                        buffer = None,
                        geom=None,
                        mask = False,
+                       mask_all_touched=False,
                        virtual = False,
                        stype = None):
         """Get image data with ability to output a data frame or request
@@ -402,12 +403,13 @@ class DGImage(GeoImage):
 
         # Call super with keywords passed in and/or convereted above
         data = super(self.__class__,self).get_data(component = component,
-                                                   bands = band_nums,
-                                                   window = window,
-                                                   buffer = buffer,
-                                                   geom=geom,
-                                                   mask = mask,
-                                                   virtual = virtual)
+                                           bands = band_nums,
+                                           window = window,
+                                           buffer = buffer,
+                                           geom=geom,
+                                           mask = mask,
+                                           mask_all_touched=mask_all_touched,
+                                           virtual = virtual)
 
         return data
 

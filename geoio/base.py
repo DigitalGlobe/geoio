@@ -853,6 +853,7 @@ class GeoImage(object):
                        buffer = None,
                        geom = None,
                        mask = False,
+                       mask_all_touched = False,
                        virtual = False):
         """Read data from geo-image file.  If component is specified and
         this is a .vrt or .til file, then it will pull only the data from
@@ -1023,7 +1024,11 @@ class GeoImage(object):
             lyr.CreateFeature(feat)
 
             # Run the burn
-            err = gdal.RasterizeLayer(tds, [1], lyr, burn_values=[1])
+            if mask_all_touched:
+                err = gdal.RasterizeLayer(tds, [1], lyr, burn_values=[1],
+                                                options=['ALL_TOUCHED=TRUE'])
+            else:
+                err = gdal.RasterizeLayer(tds, [1], lyr, burn_values=[1])
 
             # build the masked array
             m = tds.ReadAsArray().astype('bool')
