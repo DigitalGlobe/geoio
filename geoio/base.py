@@ -261,14 +261,13 @@ class GeoImage(object):
         prefixes['Data Type'] = (['gdal_dtype_name'],'')
         prefixes['File Name'] = (['file_name'],'')
         prefixes['File List'] = (['file_list'], '')
-        prefixes['Dimensions'] = (['nbands','x','y','pixels'],
-                                  ' (nlayers, nrows, ncols, npixels)')
+        prefixes['Dimensions'] = (['shape'],
+                                  ' (nlayers, nrows, ncols)')
         prefixes['Resolution'] = (['resolution'],' (x,y)')
         # The following is inverted because xstart, xend, etc are calculated
         # in pixel space and this is inverted from the North = max, South = min
         # paradigm.
-        prefixes['Extent'] = (['xstart','xend','yend','ystart'],
-                                            ' (xmin, xmax, ymin, ymax)')
+        prefixes['Extent'] = (['extent'],' (xmin, xmax, ymin, ymax)')
         prefixes['Projection String'] = (['pprint_proj_string'],'')
         prefixes['Geo Transform'] = (['geo_transform'],'')
         prefixes['Authority'] = (['authority'], '')
@@ -1242,30 +1241,29 @@ def read_geo_file_info(fname_or_fobj):
     summary['gdal_dtype_name'] = gdal.GetDataTypeName(summary['gdal_dtype'])
 
     ### Get Image basics dimensions
-    summary['x'] = fobj.RasterXSize
-    summary['y'] = fobj.RasterYSize
-    summary['pixels'] = summary['x']*summary['y']
-    summary['nbands'] = fobj.RasterCount
-    summary['shape'] = (summary['nbands'], summary['x'], summary['y'])
+    x = fobj.RasterXSize
+    y = fobj.RasterYSize
+    summary['pixels'] = x*y
+    nbands = fobj.RasterCount
+    summary['shape'] = (nbands, x, y)
 
     ### Get image resolution and extents
     # Pulled from GDALInfoReportCorner() at:
     # http://www.gdal.org/gdalinfo_8c.html
     gt = fobj.GetGeoTransform()
     summary['geo_transform'] = gt
-    summary['xstart'] = gt[0]
-    summary['xend'] = gt[0] + gt[1]*summary['x'] + gt[2]*summary['y']
-    summary['ystart'] = gt[3]
-    summary['yend'] = gt[3] + gt[4]*summary['x'] + gt[5]*summary['y']
+    xstart = gt[0]
+    xend = gt[0] + gt[1]*x + gt[2]*y
+    ystart = gt[3]
+    yend = gt[3] + gt[4]*x + gt[5]*y
 
     # Pixel Resolutions
-    summary['xres'] = abs(gt[1])
-    summary['yres'] = abs(gt[5])
+    xres = abs(gt[1])
+    yres = abs(gt[5])
 
     # Add to summary
-    summary['resolution'] = (summary['xres'],summary['yres'])
-    summary['extent'] = (summary['xstart'], summary['xend'],
-                         summary['ystart'], summary['yend'])
+    summary['resolution'] = (xres, yres)
+    summary['extent'] = (xstart, xend, ystart, yend)
 
     ### Get image projection and datum
     summary['projection_string'] = fobj.GetProjection()

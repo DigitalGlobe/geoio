@@ -113,7 +113,7 @@ class DGImage(GeoImage):
         self._set_dg_spectral_files()
 
         ## Populate the spectral files for this DGImage
-        self._set_rootlevel_dg_data_members()
+        self._set_dg_meta()
 
     def _read_dg_dir_meta_xml(self,xml_file):
         # Load the XML dg_meta_file into a dictionary
@@ -164,12 +164,11 @@ class DGImage(GeoImage):
             else:
                 pass
 
-    def _set_rootlevel_dg_data_members(self):
+    def _set_dg_meta(self):
 
-        self.meta_dg_quick = tt.bunch.OrderedBunch({})
-        self.meta_dg_quick.satid = self.meta_dg.IMD.IMAGE.SATID
-        self.meta_dg_quick.bandid = self.meta_dg.IMD.BANDID
-        self.meta_dg_quick.catid = self.meta_dg.IMD.IMAGE.CATID
+        self.meta.satid = self.meta_dg.IMD.IMAGE.SATID
+        self.meta.bandid = self.meta_dg.IMD.BANDID
+        self.meta.catid = self.meta_dg.IMD.IMAGE.CATID
 
         abscalfactor = []
         effbandwidth = []
@@ -187,16 +186,22 @@ class DGImage(GeoImage):
                 lon.append(float(self.meta_dg.IMD[x]['ULLON']))
                 hae.append(float(self.meta_dg.IMD[x]['ULHAE']))
 
-        # Set back to the bunch
-        self.meta_dg_quick.abscalfactor = abscalfactor
-        self.meta_dg_quick.effbandwidth = effbandwidth
-        self.meta_dg_quick.tdilevel = tdilevel
+        # Set band data collected from IMD/XML
+        self.meta.abscalfactor = abscalfactor
+        self.meta.effbandwidth = effbandwidth
+        self.meta.tdilevel = tdilevel
+
+        # Set data from constants file
+        sat_index = self.meta.satid.upper() + "_" + \
+                    self.meta.bandid.upper()
+        self.meta.band_names = const.DG_BAND_NAMES[sat_index]
+        self.meta.band_centers = const.DG_WEIGHTED_BAND_CENTERS[sat_index]
 
         # Longitude will be +/-180, Latitude will be +/-90, both with
         # precision of eight decimal places
         # HAE is in meters above WGS84 ellipsoid
         #ToDo - move reported point to the center of the image
-        self.meta_dg_quick.latlonhae = (lat[0],lon[0],hae[0])
+        self.meta.latlonhae = (lat[0], lon[0], hae[0])
 
         # Date/time of collection from EarliestAcqTime
         # Don't use "map_projected_product" time for this to work on 1b files
@@ -204,24 +209,8 @@ class DGImage(GeoImage):
         dtstr = self.meta_dg.IMD.IMAGE.FIRSTLINETIME
         time_vars = parse_dg_time_str(dtstr)
         tzinfo_utc = pytz.timezone('UTC')
-
-        self.meta_dg_quick.img_datetime_obj_utc = datetime.datetime(
-                                            *time_vars,tzinfo=tzinfo_utc)
-
-        # # ToDo, add this info to meta_dg_quick
-        # # --- need to verify what info is alread in bunch and what is new ---
-        # # ToDo, rename meta_dg_quick to _meta_dg
-        # # ToDo, rename meta_dg to meta_dg_full or ...
-        # # ... make meta_dg and orderd bunch with meta_dg.imd, meta_dg.til,
-        # # ... meta_dg.rpb, meta_dg.satid, meta_dg.bwidths, etc.?
-        # # --- need to do multi-project search/replace for above ---
-        # bands = tt.bunch.OrderedBunch()
-        # bnames =
-        # bands.names = bnames
-        # widths = self.meta_dg_quick['effbandwidth']
-        # bands.widths = [widths[x - 1] for x in band_nums]
-        # centers = const.DG_WEIGHTED_BAND_CENTERS[sat_index]
-        # bands.centers = [centers[x - 1] for x in band_nums]
+        self.meta.img_datetime_obj_utc = datetime.datetime(
+            *time_vars, tzinfo=tzinfo_utc)
 
     def _set_dg_spectral_files(self,path=None):
         # Get the search directory
@@ -309,8 +298,8 @@ class DGImage(GeoImage):
         logger.debug('Adding self.img_datetime_obj_local to obj data members.')
         logger.debug('')
         try:
-            self.img_tz = w.tzNameAt(self.meta_dg_quick.latlonhae[0],
-                                     self.meta_dg_quick.latlonhae[1])
+            self.img_tz = w.tzNameAt(self.meta.latlonhae[0],
+                                     self.meta.latlonhae[1])
         except:
             ###
             # Loading a tzwhere intstance from scratch...
@@ -329,21 +318,21 @@ class DGImage(GeoImage):
                   'speed if needed.')
             logger.debug('')
             w = tzwhere.tzwhere()
-            self.meta_dg_quick.img_tz = w.tzNameAt(
-                                            self.meta_dg_quick.latlonhae[0],
-                                            self.meta_dg_quick.latlonhae[1])
-            if not self.meta_dg_quick.img_tz:
+            self.meta.img_tz = w.tzNameAt(
+                                            self.meta.latlonhae[0],
+                                            self.meta.latlonhae[1])
+            if not self.meta.img_tz:
                 logger.debug('')
                 logger.debug('No time zone code returned, this location may be in '
                       'the middle of the ocean.  Defaulting to a simple '
                       'latitude based time zone calculation.')
-                offset = self._calc_gmtoffset(self.meta_dg_quick.latlonhae[1])
+                offset = self._calc_gmtoffset(self.meta.latlonhae[1])
                 #print offset
-                self.meta_dg_quick.img_tz = 'Etc/GMT'+str(offset)
+                self.meta.img_tz = 'Etc/GMT' + str(offset)
 
-        tzinfo_img = pytz.timezone(self.meta_dg_quick.img_tz)
-        self.meta_dg_quick.img_datetime_obj_local = \
-            self.meta_dg_quick.img_datetime_obj_utc.astimezone(tzinfo_img)
+        tzinfo_img = pytz.timezone(self.meta.img_tz)
+        self.meta.img_datetime_obj_local = \
+            self.meta.img_datetime_obj_utc.astimezone(tzinfo_img)
 
     def _calc_gmtoffset(self,l):
         """Calculate the general time zone offset based on latitude alone."""
@@ -385,8 +374,8 @@ class DGImage(GeoImage):
 
         # Set satelite index to query const dictionaries
         # Set initial band names that might be updated below
-        sat_index = self.meta_dg_quick.satid.upper()+"_"+\
-                        self.meta_dg_quick.bandid.upper()
+        sat_index = self.meta.satid.upper() + "_" + \
+                    self.meta.bandid.upper()
         bnames = const.DG_BAND_NAMES[sat_index]
 
         # handle options request for individual bands
@@ -421,8 +410,8 @@ class DGImage(GeoImage):
         and effective bandwidths are pull from the IMD files for each image."""
 
         # Set satellite index to look up cal factors
-        sat_index = self.meta_dg_quick.satid.upper()+"_"+\
-                    self.meta_dg_quick.bandid.upper()
+        sat_index = self.meta.satid.upper() + "_" + \
+                    self.meta.bandid.upper()
 
         # Set scale for at sensor radiance
         # Eq is:
@@ -434,8 +423,8 @@ class DGImage(GeoImage):
         # EBW effectiveBandwidth from meta data
         # Gain provided by abscal from const
         # Offset provided by abscal from const
-        num = np.asarray(self.meta_dg_quick.abscalfactor) # Should be nbands length
-        den = np.asarray(self.meta_dg_quick.effbandwidth)  # Should be nbands length
+        num = np.asarray(self.meta.abscalfactor) # Should be nbands length
+        den = np.asarray(self.meta.effbandwidth)  # Should be nbands length
         gain = np.asarray(const.DG_ABSCAL_GAIN[sat_index])
         scale = (num/den)*(gain)
 
@@ -469,8 +458,8 @@ class DGImage(GeoImage):
         """
 
         # Set satellite index to look up cal factors
-        sat_index = self.meta_dg_quick.satid.upper()+"_"+\
-                    self.meta_dg_quick.bandid.upper()
+        sat_index = self.meta.satid.upper() + "_" + \
+                    self.meta.bandid.upper()
 
         # Set scale for at sensor radiance
         # Eq is:
@@ -482,8 +471,8 @@ class DGImage(GeoImage):
         # EBW effectiveBandwidth from meta data
         # Gain provided by abscal from const
         # Offset provided by abscal from const
-        num = np.asarray(self.meta_dg_quick.abscalfactor) # Should be nbands length
-        den = np.asarray(self.meta_dg_quick.effbandwidth)  # Should be nbands length
+        num = np.asarray(self.meta.abscalfactor) # Should be nbands length
+        den = np.asarray(self.meta.effbandwidth)  # Should be nbands length
         gain = np.asarray(const.DG_ABSCAL_GAIN[sat_index])
         scale = (num/den)*(gain)
 
@@ -493,8 +482,8 @@ class DGImage(GeoImage):
         offset = offset[:, np.newaxis, np.newaxis]
 
         ## Read Esun for the bands of this satellite from the const file
-        e_sun_index = self.meta_dg_quick.satid.upper()+"_"+\
-                      self.meta_dg_quick.bandid.upper()
+        e_sun_index = self.meta.satid.upper() + "_" + \
+                      self.meta.bandid.upper()
         e_sun = const.DG_ESUN[e_sun_index]
 
         ## Calculate the generic earth_sun distance
@@ -510,10 +499,10 @@ class DGImage(GeoImage):
         # 1.0161415338516235
         sun = ephem.Sun()
         img_obs = ephem.Observer()
-        img_obs.lon = self.meta_dg_quick.latlonhae[1]
-        img_obs.lat = self.meta_dg_quick.latlonhae[0]
-        img_obs.elevation = self.meta_dg_quick.latlonhae[2]
-        img_obs.date = self.meta_dg_quick.img_datetime_obj_utc
+        img_obs.lon = self.meta.latlonhae[1]
+        img_obs.lat = self.meta.latlonhae[0]
+        img_obs.elevation = self.meta.latlonhae[2]
+        img_obs.date = self.meta.img_datetime_obj_utc
         sun.compute(img_obs)
         d_es = sun.earth_distance
 

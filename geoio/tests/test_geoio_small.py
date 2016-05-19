@@ -268,9 +268,9 @@ class TestDGImage(unittest.TestCase):
         self.assertIsInstance(self.img.meta_dg,tt.bunch.OrderedBunch)
 
     def test_DGImage_dg_meta_abscal(self):
-        self.assertTrue(len(self.img.meta_dg_quick.effbandwidth)==8)
-        self.assertTrue(len(self.img.meta_dg_quick.abscalfactor)==8)
-        self.assertIsInstance(self.img.meta_dg_quick.effbandwidth[0],float)
+        self.assertTrue(len(self.img.meta.effbandwidth)==8)
+        self.assertTrue(len(self.img.meta.abscalfactor)==8)
+        self.assertIsInstance(self.img.meta.effbandwidth[0],float)
 
     def test_DGImage_get_data_as_at_sensor_rad_dtype(self):
         """Output for at sensor radiance should be a numpy array of float32."""

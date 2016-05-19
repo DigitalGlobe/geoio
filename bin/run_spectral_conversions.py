@@ -76,8 +76,8 @@ def main(args):
     for x in flist:
         i1 = geoio.dg.DGImage(x)
         assert i1.meta_dg.IMD
-        assert i1.meta_dg_quick.abscalfactor
-        assert i1.meta_dg_quick.effbandwidth
+        assert i1.meta.abscalfactor
+        assert i1.meta.effbandwidth
         del i1
     print("... they do!")
 
