@@ -46,7 +46,7 @@ def imshow(data,stretch=[0.02,0.98],stretch_type='linear'):
         data[:,:,x] = (data[:,:,x]-bottom)/float(top-bottom)
     data = np.clip(data,0,1)
 
-    plt.imshow(data);
+    plt.imshow(data,interpolation='nearest');
     plt.show(block=False)
 
     # ToDo: fix the handle return for later update and memory issues - see
