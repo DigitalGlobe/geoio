@@ -999,11 +999,15 @@ class GeoImage(object):
             xres = self.meta_geoimg.xres
             yres = self.meta_geoimg.yres
             (xmin, xmax, ymin, ymax) = g.GetEnvelope()
+            ul_env = [xmin, ymax]
+            ul_raster = self.proj_to_raster(*ul_env)
+            ul_corner = [math.floor(ul_raster[0]),math.floor(ul_raster[1])]
+            xmin_corner,ymax_corner = self.raster_to_proj(*ul_corner)
 
             # Create temporary raster to burn
             drv = gdal.GetDriverByName('MEM')
             tds = drv.Create('', win_xsize, win_ysize, 1, gdal.GDT_Byte)
-            tds.SetGeoTransform((xmin, xres, 0, ymax, 0, -yres))
+            tds.SetGeoTransform((xmin_corner, xres, 0, ymax_corner, 0, -yres))
             tds.SetProjection(self.meta_geoimg.projection_string)
 
             # Create ogr layr from geom
