@@ -40,7 +40,7 @@ class DGImage(GeoImage):
     meta data is stored as:
     DGImage.meta_dg [populated by data from DigitalGlobe XML or pvl files -
                      i.e. IMD, RPB, etc.]
-    DGImage.meta_geoimg [populated from GeoImage class __init__]
+    DGImage.meta [populated from GeoImage class __init__]
     DGImage.files
             === Populated by GeoImage ===
             -fin  [file passed in - virtual or otherwise]
@@ -81,7 +81,7 @@ class DGImage(GeoImage):
         # BECAUSE THIS FIXES AUTORELOAD IN IPYTHON FOR DEVELOPMENT
         # Use the super line above for deploy code
         ##########################################################
-        super(self.__class__,self).__init__(dg_file_in, derived_dir)
+        super(self.__class__,self).__init__(dg_file_in, derived_dir=derived_dir)
 
         # Get the file name, full file directory, and flist
         ifile = self.files.dfile
@@ -231,24 +231,24 @@ class DGImage(GeoImage):
             path=self.derived_dir
 
         (self.files.rad,self.files.rad_tiles) = \
-            self._get_file_and_tiles(data_file,
-                                     const.DG_SPEC['RAD_IMGS'],
-                                     path=path)
+            self._get_dg_spectral_files(data_file,
+                                        const.DG_SPEC['RAD_IMGS'],
+                                        path=path)
 
         (self.files.toa,self.files.toa_tiles) = \
-            self._get_file_and_tiles(data_file,
-                                     const.DG_SPEC['TOA_IMGS'],
-                                     path=path)
+            self._get_dg_spectral_files(data_file,
+                                        const.DG_SPEC['TOA_IMGS'],
+                                        path=path)
 
         (self.files.dgacomp,self.files.dgacomp_tiles) = \
-            self._get_file_and_tiles(data_file,
-                                     const.DG_SPEC['DGACOMP_IMGS'],
-                                     path=path)
+            self._get_dg_spectral_files(data_file,
+                                        const.DG_SPEC['DGACOMP_IMGS'],
+                                        path=path)
 
         (self.files.dgacomp_aodmap,tmp_dump) = \
-            self._get_file_and_tiles(data_file,
-                                     const.DG_SPEC['DGACOMP_AOD'],
-                                     path=path)
+            self._get_dg_spectral_files(data_file,
+                                        const.DG_SPEC['DGACOMP_AOD'],
+                                        path=path)
 
         ### ToDo - Add DGACOMP_OTHER
         # Find all DGAComp files not in dgacomp or dgacomp_aodmap
@@ -275,7 +275,7 @@ class DGImage(GeoImage):
             self.files.dgacomp_other = None
 
 
-    def _get_file_and_tiles(self,dfile,search_endings,path=None):
+    def _get_dg_spectral_files(self, dfile, search_endings, path=None):
 
         sestar = [os.path.splitext(os.path.basename(dfile))[0] + x + '.' + '*'
                   for x in search_endings]
@@ -301,7 +301,7 @@ class DGImage(GeoImage):
             if tif_file:
                 tmp_files.remove(tif_file[0])
 
-        return self._populate_file_and_tiles(tmp_files[0])
+        return self._get_file_and_tiles(tmp_files[0])
 
     def populate_img_datetime_obj_local(self,w=None):
         ## Get the time/date at the image collect location
@@ -972,19 +972,19 @@ class DGImageSet(object):
         components = []
         cdirs = []
         try:
-            cdirs.append(self.pan.meta_geoimg.file_name)
+            cdirs.append(self.pan.meta.file_name)
             components.append("Pan")
         except: pass
         try:
-            cdirs.append(self.mul.meta_geoimg.file_name)
+            cdirs.append(self.mul.meta.file_name)
             components.append("VNIR")
         except: pass
         try:
-            cdirs.append(self.swr.meta_geoimg.file_name)
+            cdirs.append(self.swr.meta.file_name)
             components.append("SWIR")
         except: pass
         try:
-            cdirs.append(self.cavis.meta_geoimg.file_name)
+            cdirs.append(self.cavis.meta.file_name)
             components.append("CAVIS")
         except: pass
 

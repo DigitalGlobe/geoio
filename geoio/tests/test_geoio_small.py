@@ -57,7 +57,7 @@ class TestGeoImage(unittest.TestCase):
         self.assertIsInstance(self.img.files,tt.bunch.OrderedBunch)
 
     def test_GeoImage_meta_exists(self):
-        self.assertIsInstance(self.img.meta_geoimg,tt.bunch.OrderedBunch)
+        self.assertIsInstance(self.img.meta,tt.bunch.OrderedBunch)
 
     def test_GeoImage_shape(self):
         self.assertEqual(self.img.shape,(8,500,501))
@@ -76,7 +76,7 @@ class TestGeoImage(unittest.TestCase):
     def test_GeoImage_get_data_dtypes(self):
         a = self.img.get_data()
         self.assertEqual(const.DICT_NP_TO_GDAL[a.dtype],
-                         self.img.meta_geoimg.data_type)
+                         self.img.meta.gdal_dtype)
 
     def test_GeoImage_write_img_like_this(self):
         a = (self.img.get_data()*0.01).astype('float32')

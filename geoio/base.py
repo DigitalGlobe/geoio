@@ -67,7 +67,7 @@ class GeoImage(object):
                        doesn't contain tiles, this should be equal to dfile.
 
         Inherited classes can override/extend this listing.
-    meta_geoimg : tinytools.bunch.OrderedBunch
+    meta : tinytools.bunch.OrderedBunch
         Summary metadata of the base image.
     shape : tuple
         shape of the image in gdal format (bands,x,y).
@@ -123,7 +123,7 @@ class GeoImage(object):
                               "to the input variable dervied_store_dir.")
 
         ### Setup the dataset and subdataset variables
-        (tmpfile,tmptiles)=self._populate_file_and_tiles(ifile)
+        (tmpfile,tmptiles)=self._get_file_and_tiles(ifile)
 
         #!# self.files_dict['dfile'] = tmpfile
         #!# self.files_dict['dfile_tiles'] = tmptiles
@@ -137,82 +137,16 @@ class GeoImage(object):
         # ... variables created here:
         # self._fobj
         # self.meta_geoimg_dict
-        # self.meta_geoimg
+        # self.meta
 
         # Open the image in files.dfile
-        self._fobj = self._return_gdal_obj(self.files.dfile,
-                                           self.files.dfile_tiles)
+        self._fobj = self._get_gdal_obj(self.files.dfile,
+                                        self.files.dfile_tiles)
 
         # Populate metadata info from gdal
-        self._get_img_metadata()
+        self._set_metadata()
 
-    def __repr__(self):
-        """Human readable image summary similar to the R package 'raster'."""
-        sss = ''
-        su = self.meta_geoimg
-
-        prefixes = collections.OrderedDict()
-        prefixes['Class Name'] = (['class_name'],'')
-        prefixes['Driver Name'] = (['driver_name'],'')
-        prefixes['Data Type Name'] = (['data_type_name'],'')
-        prefixes['File Name'] = (['file_name'],'')
-        prefixes['Dimensions'] = (['nbands','x','y','pixels'],
-                                  ' (nlayers, nrows, ncols, npixels)')
-        prefixes['Resolution'] = (['resolution'],' (x,y)')
-        # The following is inverted because xstart, xend, etc are calculated
-        # in pixel space and this is inverted from the North = max, South = min
-        # paradigm.
-        prefixes['Extent'] = (['xstart','xend','yend','ystart'],
-                                            ' (xmin, xmax, ymin, ymax)')
-        prefixes['Projection String'] = (['pprint_projection_string'],'')
-        prefixes['Geo Transform'] = (['geo_transform'],'')
-        prefixes['File List'] = (['file_list'],'')
-
-        ### Loop through prefixes and su to print data to screen
-        # Gen max length of labels to set prefix length
-        prelen = max([len(x) for x in prefixes])
-        # Loop through each prefix to put together wrapped string
-        for x in prefixes:
-            prefix = x+' '*(prelen-len(x))+' : '
-            width_set = 80
-            wrapper = textwrap.TextWrapper(initial_indent=prefix,
-                                           width=width_set,
-                                           replace_whitespace=False,
-                                           subsequent_indent=' '*len(prefix))
-
-            message = ', '.join([str(su[y]) for y in prefixes[x][0]])
-            message = message+prefixes[x][1]
-
-            if x == 'Projection String':
-                sss = sss+prefix+message.replace('\n', '\n'+' '*prelen)+'\n'
-            elif message:
-                sss = sss+wrapper.fill(message)+'\n'
-            else:
-                sss = sss+prefix+'\n'
-
-        return sss
-
-    def _get_img_metadata(self):
-        """ Get image metadata."""
-        meta_geoimg_dict = read_geo_file_info(self._fobj)
-
-        # Need to handle case of a .TIL that results an in memory VRT.
-        # In this case, file_name will be the VRT string when returned
-        # from the gdal driver above and does not print well or return the
-        # intended information.
-        if not os.path.isfile(meta_geoimg_dict['file_name']):
-            meta_geoimg_dict['file_name'] = self.files.dfile
-
-        ### OrderedBunch the metadata from the read_geo_file_info dictionary
-        self.meta_geoimg = tt.bunch.OrderedBunch(meta_geoimg_dict)
-
-        ### Get Image basics dimensions to members
-        self.shape = self.meta_geoimg.shape
-
-        # Pixel Resolutions to members
-        self.resolution = self.meta_geoimg.resolution
-
-    def _populate_file_and_tiles(self,ifile):
+    def _get_file_and_tiles(self, ifile):
 
         # If fname is a .til file then create .vrt
         if tt.files.filter(ifile, '*.TIL', case_sensitive=False):
@@ -246,7 +180,7 @@ class GeoImage(object):
 
         return (file_loc,tiles_loc)
 
-    def _return_gdal_obj(self,dfile,dfile_tiles):
+    def _get_gdal_obj(self, dfile, dfile_tiles):
         '''Return gdal object for the GeoImage.'''
 
         # Need to handle .TIL files specifically because gdal does not fully
@@ -294,6 +228,78 @@ class GeoImage(object):
             obj = gdal.Open(self.files.dfile, gdalconst.GA_ReadOnly)
 
         return obj
+
+    def _set_metadata(self):
+        """ Get image metadata."""
+        meta_geoimg_dict = read_geo_file_info(self._fobj)
+
+        # Need to handle case of a .TIL that results an in memory VRT.
+        # In this case, file_name will be the VRT string when returned
+        # from the gdal driver above and does not print well or return the
+        # intended information.
+        if not os.path.isfile(meta_geoimg_dict['file_name']):
+            meta_geoimg_dict['file_name'] = self.files.dfile
+
+        # Add geoio class name to dictionary
+        meta_geoimg_dict['class_name'] = self.__class__.__name__
+
+        ### OrderedBunch the metadata from the read_geo_file_info dictionary
+        self.meta = tt.bunch.OrderedBunch(meta_geoimg_dict)
+
+        # Set class members
+        self.shape = self.meta.shape
+        self.resolution = self.meta.resolution
+
+    def __repr__(self):
+        """Human readable image summary similar to the R package 'raster'."""
+        sss = ''
+        su = self.meta
+
+        prefixes = collections.OrderedDict()
+        prefixes['Class Name'] = (['class_name'],'')
+        prefixes['Driver Name'] = (['driver_name'],'')
+        prefixes['Data Type'] = (['gdal_dtype_name'],'')
+        prefixes['File Name'] = (['file_name'],'')
+        prefixes['File List'] = (['file_list'], '')
+        prefixes['Dimensions'] = (['nbands','x','y','pixels'],
+                                  ' (nlayers, nrows, ncols, npixels)')
+        prefixes['Resolution'] = (['resolution'],' (x,y)')
+        # The following is inverted because xstart, xend, etc are calculated
+        # in pixel space and this is inverted from the North = max, South = min
+        # paradigm.
+        prefixes['Extent'] = (['xstart','xend','yend','ystart'],
+                                            ' (xmin, xmax, ymin, ymax)')
+        prefixes['Projection String'] = (['pprint_proj_string'],'')
+        prefixes['Geo Transform'] = (['geo_transform'],'')
+        prefixes['Authority'] = (['authority'], '')
+
+        ### Loop through prefixes and su to print data to screen
+        # Gen max length of labels to set prefix length
+        prelen = max([len(x) for x in prefixes])
+        # Loop through each prefix to put together wrapped string
+        for x in prefixes:
+            prefix = x+' '*(prelen-len(x))+' : '
+            width_set = 80
+            wrapper = textwrap.TextWrapper(initial_indent=prefix,
+                                           width=width_set,
+                                           replace_whitespace=False,
+                                           subsequent_indent=' '*len(prefix))
+
+            message = ', '.join([str(su[y]) for y in prefixes[x][0]])
+            message = message+prefixes[x][1]
+
+            # Handle different message formats:
+            # If message contains new lines, just pass those through to print.
+            if message.find('\n') != -1:
+                sss = sss + prefix + message.replace('\n','\n'+' '*prelen)+'\n'
+            # Else if message is not empty, pass to wrapper.fill
+            elif message:
+                sss = sss + wrapper.fill(message) + '\n'
+            # Else just pass the empty message along with prefix
+            else:
+                sss = sss + prefix + '\n'
+
+        return sss
 
     def print_img_summary(self):
         """Echo the object's __repr__ method."""
@@ -395,8 +401,8 @@ class GeoImage(object):
         # set stride to make windows adjoining
         if win_size and not stride:
             # Set vars for easy access below
-            xs = self.meta_geoimg.x
-            ys = self.meta_geoimg.y
+            xs = self.meta.x
+            ys = self.meta.y
             xsize, ysize = win_size
 
             # Find starting offsets by identifying the pixels that don't fit in
@@ -414,10 +420,10 @@ class GeoImage(object):
                 logger.debug(' xoff is %s,\tyoff is %s', xoff, yoff)
                 yield self.get_data(window=[xoff, yoff, xsize, ysize],**kwargs)
                 xoff += xsize
-                if xoff > self.meta_geoimg.x:
+                if xoff > self.meta.x:
                     xoff = xoff_start
                     yoff += ysize
-                if yoff > self.meta_geoimg.y:
+                if yoff > self.meta.y:
                     break
 
         # if NOT win_size and stride, raise error
@@ -433,8 +439,8 @@ class GeoImage(object):
         # just do it
         elif win_size and stride:
             # Set vars for easy access below
-            xs = self.meta_geoimg.x
-            ys = self.meta_geoimg.y
+            xs = self.meta.x
+            ys = self.meta.y
             xsize, ysize = win_size
             xstride, ystride = stride
 
@@ -452,10 +458,10 @@ class GeoImage(object):
                 logger.debug(' xoff is %s,\tyoff is %s', xoff, yoff)
                 yield self.get_data(window=[xoff, yoff, xsize, ysize], **kwargs)
                 xoff += xstride
-                if xoff > self.meta_geoimg.x:
+                if xoff > self.meta.x:
                     xoff = xoff_start
                     yoff += ystride
-                if yoff > self.meta_geoimg.y:
+                if yoff > self.meta.y:
                     break
 
     def iter_window_random(self, win_size=None, no_chips=1000, **kwargs):
@@ -484,8 +490,8 @@ class GeoImage(object):
                                  'to or less than zero.')
 
         counter = no_chips
-        xs = self.meta_geoimg.x
-        ys = self.meta_geoimg.y
+        xs = self.meta.x
+        ys = self.meta.y
         xsize, ysize = win_size
 
         while True:
@@ -526,8 +532,8 @@ class GeoImage(object):
         lyr = obj.GetLayer(0)
         lyr_sr = lyr.GetSpatialRef()
 
-        img_proj = self.meta_geoimg.projection_string
-        img_trans = self.meta_geoimg.geo_transform
+        img_proj = self.meta.projection_string
+        img_trans = self.meta.geo_transform
         img_sr = osr.SpatialReference()
         img_sr.ImportFromWkt(img_proj)
 
@@ -642,8 +648,8 @@ class GeoImage(object):
         lyr = obj.GetLayer(0)
         lyr_sr = lyr.GetSpatialRef()
 
-        img_proj = self.meta_geoimg.projection_string
-        img_trans = self.meta_geoimg.geo_transform
+        img_proj = self.meta.projection_string
+        img_trans = self.meta.geo_transform
         img_sr = osr.SpatialReference()
         img_sr.ImportFromWkt(img_proj)
 
@@ -701,12 +707,12 @@ class GeoImage(object):
         # Logging info if needed
         logger.debug('vector geo extent...\n\t%s\n\t%s',ul_vec,lr_vec)
         logger.debug('image geo extent...\n\t%s\n\t%s',ul_img,lr_img)
-        logger.debug('geo transform...\n\t%s',self.meta_geoimg.geo_transform)
+        logger.debug('geo transform...\n\t%s', self.meta.geo_transform)
         logger.debug('raster xy extent...\n\t%s,\n\t%s',xs,ys)
         logger.debug('requested window...\n\t%s',window)
 
         if ((xoff + win_xsize <= 0) or (yoff + win_ysize <= 0) or
-            (xoff > self.meta_geoimg.x) or (yoff > self.meta_geoimg.y)):
+            (xoff > self.meta.x) or (yoff > self.meta.y)):
             raise OverlapError("The requested data window has no " \
                               "content.  Perhaps the image and vector " \
                               "do not overlap or the projections may " \
@@ -764,7 +770,7 @@ class GeoImage(object):
         projy = np.asarray(projy)
 
         # Get geo_transform from object
-        gm = self.meta_geoimg.geo_transform
+        gm = self.meta.geo_transform
 
         # Transform per inverse of http://www.gdal.org/gdal_datamodel.html
         x = (gm[5] * (projx - gm[0]) - gm[2] * (projy - gm[3])) / \
@@ -831,7 +837,7 @@ class GeoImage(object):
         y = np.asarray(y)
 
         # Get geo_transform from object
-        gm = self.meta_geoimg.geo_transform
+        gm = self.meta.geo_transform
 
         # Transform per http://www.gdal.org/gdal_datamodel.html
         projx = gm[0] + gm[1] * x + gm[2] * y
@@ -907,8 +913,8 @@ class GeoImage(object):
             # Else use extent of image to set extent params
             xoff = 0
             yoff = 0
-            win_xsize = self.meta_geoimg.x
-            win_ysize = self.meta_geoimg.y
+            win_xsize = self.meta.x
+            win_ysize = self.meta.y
 
         # Add buffer
         if buffer:
@@ -949,14 +955,14 @@ class GeoImage(object):
             yoff = 0
 
         xpos = xoff+win_xsize
-        xlim = self.meta_geoimg.x
+        xlim = self.meta.x
         ypos = yoff+win_ysize
-        ylim = self.meta_geoimg.y
+        ylim = self.meta.y
 
         if xpos > xlim:
             np_xlim_buff = xpos-xlim
             win_xsize = win_xsize-np_xlim_buff
-        if ypos > self.meta_geoimg.y:
+        if ypos > self.meta.y:
             np_ylim_buff = ypos-ylim
             win_ysize = win_ysize-np_ylim_buff
 
@@ -997,8 +1003,8 @@ class GeoImage(object):
         # Convert numpy array to masked numpy array if requested.
         if mask and geom:
             # Set image parameters
-            xres = self.meta_geoimg.xres
-            yres = self.meta_geoimg.yres
+            xres = self.meta.xres
+            yres = self.meta.yres
             (xmin, xmax, ymin, ymax) = g.GetEnvelope()
             ul_env = [xmin, ymax]
             ul_raster = self.proj_to_raster(*ul_env)
@@ -1009,14 +1015,14 @@ class GeoImage(object):
             drv = gdal.GetDriverByName('MEM')
             tds = drv.Create('', win_xsize, win_ysize, 1, gdal.GDT_Byte)
             tds.SetGeoTransform((xmin_corner, xres, 0, ymax_corner, 0, -yres))
-            tds.SetProjection(self.meta_geoimg.projection_string)
+            tds.SetProjection(self.meta.projection_string)
 
             # Create ogr layr from geom
             odrv = ogr.GetDriverByName('Memory')
             ds = odrv.CreateDataSource('')
 
             ltype = g.GetGeometryType()
-            lsrs = osr.SpatialReference(self.meta_geoimg.projection_string)
+            lsrs = osr.SpatialReference(self.meta.projection_string)
             lyr = ds.CreateLayer('burnshp', lsrs, ltype)
 
             feat = ogr.Feature(lyr.GetLayerDefn())
@@ -1137,20 +1143,20 @@ class GeoImage(object):
                              (np_array.shape, self.shape))
 
         if gdal_driver_name is None:
-            gdal_driver_name = self.meta_geoimg.driver_name
+            gdal_driver_name = self.meta.driver_name
 
         ## Write the geo image using my geoio function
         # NDV set to 0 by default in create_geo_image
         new_img_name = create_geo_image(new_file_name = new_fname,
-                         data_np_array = np_array,
-                         gdal_driver_name = gdal_driver_name,
-                         #gdal_driver_name = 'GTiff',
-                         gdal_geo_t = self.meta_geoimg.geo_transform,
-                         gdal_projection = self.meta_geoimg.projection_string,
-                         data_type = np_array.dtype,
-                         NDV=self.meta_geoimg.no_data_value,
-                         options=options,
-                         vrt_fallback=vrt_fallback)
+                                        data_np_array = np_array,
+                                        gdal_driver_name = gdal_driver_name,
+                                        #gdal_driver_name = 'GTiff',
+                         gdal_geo_t = self.meta.geo_transform,
+                                        gdal_projection = self.meta.projection_string,
+                                        data_type = np_array.dtype,
+                                        NDV=self.meta.no_data_value,
+                                        options=options,
+                                        vrt_fallback=vrt_fallback)
 
         # Output information about the new file
         f = GeoImage(new_img_name)
@@ -1159,9 +1165,9 @@ class GeoImage(object):
         logger.debug("######################")
         logger.debug("New image file has been created at:  "+new_img_name)
         logger.debug("Data type is:  "+str(np_array.dtype))
-        if self.meta_geoimg.no_data_value:
-            logger.debug("No data value set to:  "+
-                         str(self.meta_geoimg.no_data_value))
+        if self.meta.no_data_value:
+            logger.debug("No data value set to:  " +
+                         str(self.meta.no_data_value))
         else:
             logger.debug("No data value was not set.")
         logger.debug("######################")
@@ -1184,7 +1190,7 @@ class GeoImage(object):
                              (np_array.shape, self.shape))
 
         # Check that the incoming array is the same dtype as the image.
-        gi_dtype = self.meta_geoimg.data_type
+        gi_dtype = self.meta.gdal_dtype
         if not (np_array.dtype == const.DICT_GDAL_TO_NP[gi_dtype]):
             raise ValueError("Data types must match exactly to do a "
                              "data replace.")
@@ -1228,14 +1234,12 @@ def read_geo_file_info(fname_or_fobj):
         fobj = fname_or_fobj
 
     summary = {}
-    summary['class_name'] = fobj.__class__.__name__
     summary['file_name'] = fobj.GetDescription()
     summary['file_list'] = fobj.GetFileList()
     summary['driver_name'] = fobj.GetDriver().ShortName
-    summary['driver_obj'] = fobj.GetDriver()
     summary['no_data_value'] = fobj.GetRasterBand(1).GetNoDataValue()
-    summary['data_type'] = fobj.GetRasterBand(1).DataType
-    summary['data_type_name'] = gdal.GetDataTypeName(summary['data_type'])
+    summary['gdal_dtype'] = fobj.GetRasterBand(1).DataType
+    summary['gdal_dtype_name'] = gdal.GetDataTypeName(summary['gdal_dtype'])
 
     ### Get Image basics dimensions
     summary['x'] = fobj.RasterXSize
@@ -1267,7 +1271,9 @@ def read_geo_file_info(fname_or_fobj):
     summary['projection_string'] = fobj.GetProjection()
     # Get pretty printable projection_string
     sr = osr.SpatialReference(fobj.GetProjectionRef())
-    summary['pprint_projection_string'] = sr.ExportToPrettyWkt()
+    summary['pprint_proj_string'] = sr.ExportToPrettyWkt()
+    summary['authority'] = sr.GetAttrValue("AUTHORITY",0)+ ':' + \
+                           sr.GetAttrValue("AUTHORITY",1)
 
     return summary
 
