@@ -86,6 +86,7 @@ class DGImage(GeoImage):
         # Get the file name, full file directory, and flist
         ifile = self.files.dfile
         fname = os.path.basename(ifile)
+        ifile_base = os.path.splitext(ifile)[0]
         dgbase = fname.split("-")[0]
         fdir = os.path.dirname(ifile)
         flist = os.listdir(fdir)
@@ -94,7 +95,8 @@ class DGImage(GeoImage):
         ## Populate DG metadata files
         self.files.meta = []
         for e in const.DG_META:
-            found_mfiles = tt.files.filter(flist,'*'+e,case_sensitive=False)
+            found_mfiles = tt.files.filter(flist,ifile_base+e,
+                                                case_sensitive=False)
             self.files.meta = self.files.meta + found_mfiles
 
         if not self.files.meta:
