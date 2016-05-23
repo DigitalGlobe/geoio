@@ -400,8 +400,8 @@ class GeoImage(object):
         # set stride to make windows adjoining
         if win_size and not stride:
             # Set vars for easy access below
-            xs = self.meta.x
-            ys = self.meta.y
+            xs = self.meta.shape[1]
+            ys = self.meta.shape[2]
             xsize, ysize = win_size
 
             # Find starting offsets by identifying the pixels that don't fit in
@@ -419,10 +419,10 @@ class GeoImage(object):
                 logger.debug(' xoff is %s,\tyoff is %s', xoff, yoff)
                 yield self.get_data(window=[xoff, yoff, xsize, ysize],**kwargs)
                 xoff += xsize
-                if xoff > self.meta.x:
+                if xoff > self.meta.shape[1]:
                     xoff = xoff_start
                     yoff += ysize
-                if yoff > self.meta.y:
+                if yoff > self.meta.shape[2]:
                     break
 
         # if NOT win_size and stride, raise error
@@ -438,8 +438,8 @@ class GeoImage(object):
         # just do it
         elif win_size and stride:
             # Set vars for easy access below
-            xs = self.meta.x
-            ys = self.meta.y
+            xs = self.meta.shape[1]
+            ys = self.meta.shape[2]
             xsize, ysize = win_size
             xstride, ystride = stride
 
@@ -457,10 +457,10 @@ class GeoImage(object):
                 logger.debug(' xoff is %s,\tyoff is %s', xoff, yoff)
                 yield self.get_data(window=[xoff, yoff, xsize, ysize], **kwargs)
                 xoff += xstride
-                if xoff > self.meta.x:
+                if xoff > self.meta.shape[1]:
                     xoff = xoff_start
                     yoff += ystride
-                if yoff > self.meta.y:
+                if yoff > self.meta.shape[2]:
                     break
 
     def iter_window_random(self, win_size=None, no_chips=1000, **kwargs):
@@ -489,8 +489,8 @@ class GeoImage(object):
                                  'to or less than zero.')
 
         counter = no_chips
-        xs = self.meta.x
-        ys = self.meta.y
+        xs = self.meta.shape[1]
+        ys = self.meta.shape[2]
         xsize, ysize = win_size
 
         while True:
@@ -711,7 +711,7 @@ class GeoImage(object):
         logger.debug('requested window...\n\t%s',window)
 
         if ((xoff + win_xsize <= 0) or (yoff + win_ysize <= 0) or
-            (xoff > self.meta.x) or (yoff > self.meta.y)):
+            (xoff > self.meta.shape[1]) or (yoff > self.meta.shape[2])):
             raise OverlapError("The requested data window has no " \
                               "content.  Perhaps the image and vector " \
                               "do not overlap or the projections may " \
@@ -912,8 +912,8 @@ class GeoImage(object):
             # Else use extent of image to set extent params
             xoff = 0
             yoff = 0
-            win_xsize = self.meta.x
-            win_ysize = self.meta.y
+            win_xsize = self.meta.shape[1]
+            win_ysize = self.meta.shape[2]
 
         # Add buffer
         if buffer:
@@ -954,14 +954,14 @@ class GeoImage(object):
             yoff = 0
 
         xpos = xoff+win_xsize
-        xlim = self.meta.x
+        xlim = self.meta.shape[1]
         ypos = yoff+win_ysize
-        ylim = self.meta.y
+        ylim = self.meta.shape[2]
 
         if xpos > xlim:
             np_xlim_buff = xpos-xlim
             win_xsize = win_xsize-np_xlim_buff
-        if ypos > self.meta.y:
+        if ypos > self.meta.shape[2]:
             np_ylim_buff = ypos-ylim
             win_ysize = win_ysize-np_ylim_buff
 
@@ -1002,8 +1002,8 @@ class GeoImage(object):
         # Convert numpy array to masked numpy array if requested.
         if mask and geom:
             # Set image parameters
-            xres = self.meta.xres
-            yres = self.meta.yres
+            xres = self.meta.resolution[0]
+            yres = self.meta.resolution[1]
             (xmin, xmax, ymin, ymax) = g.GetEnvelope()
             ul_env = [xmin, ymax]
             ul_raster = self.proj_to_raster(*ul_env)
