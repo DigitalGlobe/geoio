@@ -16,7 +16,7 @@ tests_require = [
 
 setup(
     name='geoio',
-    version='1.2.0',
+    version='1.2.3',
     author='Nathan Longbotham',
     author_email='nlongbotham@digitalglobe.com',
     packages=find_packages(),
