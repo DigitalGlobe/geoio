@@ -1434,3 +1434,30 @@ def get_img_stretch_vals(imgfname_or_gdalobj,stretch=[0.02,0.98],approx_ok=True)
 
     return (bottomcut,topcut)
 
+class GeoSet(object):
+
+    def __init__(self,*args,**kwargs):
+
+        self.imgs = []
+        for x in args:
+            self.imgs.append(GeoImage(x))
+
+        self._set_set_meta()
+
+    def __repr__(self):
+
+        svals = [x.meta.class_name for x in self.imgs]
+
+        return ', '.join(svals)
+
+    def __len__(self):
+        return len(self.imgs)
+
+    def _set_set_meta(self):
+
+        # TBD - time difference, angle difference, etc.
+        pass
+
+    def get_data(self):
+
+        pass
