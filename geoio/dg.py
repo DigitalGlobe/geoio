@@ -74,14 +74,14 @@ class DGImage(GeoImage):
         ### Trigger super __init__ and set the GeoImage stuff
         # ... variables created here:
         # See above for list of "Populated by GeoImage"
-        #super(DGImage,self).__init__(dg_file_in)
+        super(DGImage,self).__init__(dg_file_in, derived_dir=derived_dir)
         #########  IMPORTANT !!!!  ##############################
-        # DO NOT SUBCLASS WITH THIE SELF REFERENCED SUPER!
+        # DO NOT SUBCLASS WITH THIE SELF REFERENCED SUPER FROM BELOW!
         # INFINITE RECURSION WILL RESULT.  I HAVE THIS IN
         # BECAUSE THIS FIXES AUTORELOAD IN IPYTHON FOR DEVELOPMENT
-        # Use the super line above for deploy code
+        # Use the super line above for deployed code
         ##########################################################
-        super(self.__class__,self).__init__(dg_file_in, derived_dir=derived_dir)
+        #super(self.__class__,self).__init__(dg_file_in, derived_dir=derived_dir)
 
         # Get the file name, full file directory, and flist
         ifile = self.files.dfile
@@ -167,6 +167,14 @@ class DGImage(GeoImage):
                 pass
 
     def _set_dg_meta(self):
+
+        # If for some reason the meta object wasn't created, create it
+        # This can happen when a class overloads that meta creation routines
+        # in the super object.
+        try:
+            tmp = self.meta
+        except AttributeError:
+            self.meta = tt.bunch.OrderedBunch()
 
         self.meta.satid = self.meta_dg.IMD.IMAGE.SATID
         self.meta.bandid = self.meta_dg.IMD.BANDID
