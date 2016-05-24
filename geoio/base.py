@@ -18,6 +18,7 @@ import textwrap
 import tempfile
 import logging
 import math
+from collections import Sequence
 from tzwhere import tzwhere
 import tinytools as tt
 
@@ -859,7 +860,10 @@ class GeoImage(object):
                        geom = None,
                        mask = False,
                        mask_all_touched = False,
-                       virtual = False):
+                       virtual = False,
+                       buf_xsize=None,
+                       buf_ysize=None,
+                       buf_type=None):
         """Read data from geo-image file.  If component is specified and
         this is a .vrt or .til file, then it will pull only the data from
         the file specified in self.dfile_tiles.  Component is specified base 1.
@@ -987,7 +991,10 @@ class GeoImage(object):
                     data[i,:,:] = bobj.ReadAsArray(xoff=xoff,
                                                    yoff=yoff,
                                                    win_xsize=win_xsize,
-                                                   win_ysize=win_ysize)
+                                                   win_ysize=win_ysize,
+                                                   buf_xsize=buf_xsize,
+                                                   buf_ysize=buf_ysize,
+                                                   buf_type=buf_type)
                 except NameError:
                     zt = len(bands)
                     dt = const.DICT_GDAL_TO_NP[bobj.DataType]
@@ -995,7 +1002,10 @@ class GeoImage(object):
                     data[i,:,:] = bobj.ReadAsArray(xoff=xoff,
                                                    yoff=yoff,
                                                    win_xsize=win_xsize,
-                                                   win_ysize=win_ysize)
+                                                   win_ysize=win_ysize,
+                                                   buf_xsize=buf_xsize,
+                                                   buf_ysize=buf_ysize,
+                                                   buf_type=buf_type)
         else:
             raise ValueError("virtual keyword argument should be boolean.")
 
@@ -1434,7 +1444,7 @@ def get_img_stretch_vals(imgfname_or_gdalobj,stretch=[0.02,0.98],approx_ok=True)
 
     return (bottomcut,topcut)
 
-class GeoSet(object):
+class GeoSet(Sequence):
 
     def __init__(self,*args,**kwargs):
 
@@ -1452,6 +1462,9 @@ class GeoSet(object):
 
     def __len__(self):
         return len(self.imgs)
+
+    def __getitem__(self,i):
+        return self.imgs[i]
 
     def _set_set_meta(self):
 
