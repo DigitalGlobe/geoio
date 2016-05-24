@@ -1,4 +1,10 @@
 from setuptools import setup, find_packages
+import os
+
+# Set version number
+vpath = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(vpath,'VERSION.txt')) as f:
+    VERSION = f.read().strip('\n')
 
 install_requires = [
     'gdal',
@@ -16,7 +22,7 @@ tests_require = [
 
 setup(
     name='geoio',
-    version='1.2.3',
+    version=VERSION,
     author='Nathan Longbotham',
     author_email='nlongbotham@digitalglobe.com',
     packages=find_packages(),
