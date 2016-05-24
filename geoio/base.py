@@ -181,6 +181,7 @@ class GeoImage(object):
 
         return (file_loc,tiles_loc)
 
+
     def _get_gdal_obj(self, dfile, dfile_tiles):
         '''Return gdal object for the GeoImage.'''
 
@@ -230,6 +231,7 @@ class GeoImage(object):
 
         return obj
 
+
     def _set_metadata(self):
         """ Get image metadata."""
         meta_geoimg_dict = read_geo_file_info(self._fobj)
@@ -250,6 +252,7 @@ class GeoImage(object):
         # Set class members
         self.shape = self.meta.shape
         self.resolution = self.meta.resolution
+
 
     def __repr__(self):
         """Human readable image summary similar to the R package 'raster'."""
@@ -301,16 +304,19 @@ class GeoImage(object):
 
         return sss
 
+
     def print_img_summary(self):
         """Echo the object's __repr__ method."""
         print(self.__repr__())
+
 
     def __iter__(self):
         '''Yield from default iter_window iterator.'''
         for x in self.iter_window():
             yield x
 
-    def iter_base(self,xoff,yoff,win_xsize,win_ysize,**kwargs):
+
+    def iter_base(self, xoff, yoff, win_xsize, win_ysize, **kwargs):
         '''
         Base iterator function to yield data from array-like window parameters.
 
@@ -347,7 +353,8 @@ class GeoImage(object):
                                              w[0], w[1], w[2], w[3])
             yield self.get_data(window=w,**kwargs)
 
-    def iter_window(self, win_size=None, stride=None,**kwargs):
+
+    def iter_window(self, win_size=None, stride=None, **kwargs):
         '''
         Window iterator that yields data from the image based on win_size
         and stride.
@@ -463,6 +470,7 @@ class GeoImage(object):
                     yoff += ystride
                 if yoff > self.meta.shape[2]:
                     break
+
 
     def iter_window_random(self, win_size=None, no_chips=1000, **kwargs):
         """Random chip iterator.
@@ -617,6 +625,7 @@ class GeoImage(object):
             else:
                 yield data
 
+
     def get_data_from_vec_extent(self, vector=None, **kwargs):
         """This is a convenience method to find the extent of a vector and
         return the data from that extent.  kwargs can be anything accepted
@@ -661,6 +670,7 @@ class GeoImage(object):
         [xoff, yoff, win_xsize, win_ysize] = window
 
         return self.get_data(window = window, **kwargs)
+
 
     def _extent_to_window(self,extent,coord_trans=None):
 
@@ -719,6 +729,7 @@ class GeoImage(object):
                               "not be able to be automatically reconciled?")
 
         return window
+
 
     def proj_to_raster(self, projx, projy):
         '''
@@ -787,6 +798,7 @@ class GeoImage(object):
         elif intype == 4:
             return x, y
 
+
     def raster_to_proj(self, x, y):
         '''
         Method to convert points in raster space to points in projection space.
@@ -853,17 +865,20 @@ class GeoImage(object):
         elif intype == 4:
             return projx, projy
 
-    def get_data(self, component = None,
-                       bands = None,
-                       window = None,
-                       buffer = None,
-                       geom = None,
-                       mask = False,
-                       mask_all_touched = False,
-                       virtual = False,
+
+    def get_data(self, component=None,
+                       bands=None,
+                       window=None,
+                       buffer=None,
+                       geom=None,
+                       mask=False,
+                       mask_all_touched=False,
+                       virtual=False,
+                       return_location=False,
                        buf_xsize=None,
                        buf_ysize=None,
                        buf_type=None):
+
         """Read data from geo-image file.  If component is specified and
         this is a .vrt or .til file, then it will pull only the data from
         the file specified in self.dfile_tiles.  Component is specified base 1.
@@ -871,7 +886,13 @@ class GeoImage(object):
         The isn't generally a reason to call both component and window,
         but it isn't explicitly disallowed.  If window and component are both
         specified, the resulting data window is relative to the coordinates
-        of the specified component."""
+        of the specified component.
+
+        If return location=True, the function also returns the upper-left pixel
+        coordinates.
+
+        (TO DO: DETAILED DOCUMENTATION OF INPUT AND OUTPUT! WHAT DO THE ARGUMENTS MEAN?)
+        """
 
         if component is not None:
             if component == 0:
@@ -899,7 +920,7 @@ class GeoImage(object):
                              "extent.  Pass either one or the other.")
 
         if window:
-            # Set extent paramets based on window if provided
+            # Set extent parameters based on window if provided
             if len(window) == 4:
                 [xoff, yoff, win_xsize, win_ysize] = window
             else:
@@ -1073,7 +1094,13 @@ class GeoImage(object):
         except NameError:
             pass
 
-        return data
+        if return_location:
+            location_dict = {}
+            location_dict['upper_left_pixel'] = [xoff, yoff]
+            return data, location_dict
+        else:
+            return data
+
 
     def _instantiate_geom(self,g):
         """Attempt to convert the geometry pass in to and ogr Geometry
@@ -1121,6 +1148,7 @@ class GeoImage(object):
 
         raise ValueError("A geometry object was not able to be created from " \
                          "the value passed in.")
+
 
     def write_img_like_this(self,new_fname,np_array,return_obj=False,
                             gdal_driver_name=None,options=[],
@@ -1184,6 +1212,7 @@ class GeoImage(object):
         if return_obj:
             return f
 
+
     def write_img_replace_this(self,np_array):
         """Replace the data in the current object image with the data passed
         in the variable "np_array".  This method uses gdal to replace the
@@ -1224,6 +1253,7 @@ class GeoImage(object):
     def get_stretch_values(self,**kwargs):
         # Call the stretch_values function in this module.
         return get_img_stretch_vals(self._fobj,**kwargs)
+
 
 def read_geo_file_info(fname_or_fobj):
     """ Get image metadata."""
@@ -1284,6 +1314,7 @@ def read_geo_file_info(fname_or_fobj):
                            sr.GetAttrValue("AUTHORITY",1)
 
     return summary
+
 
 # Function to write a new file.
 def create_geo_image(new_file_name, data_np_array, gdal_driver_name,
@@ -1380,6 +1411,7 @@ def create_geo_image(new_file_name, data_np_array, gdal_driver_name,
 
     # Return the new file name in case it was changed due to vrt fallback.
     return new_file_name
+
 
 def get_img_stretch_vals(imgfname_or_gdalobj,stretch=[0.02,0.98],approx_ok=True):
     """Read image, mask very small values, and return max and min
