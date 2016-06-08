@@ -18,6 +18,7 @@ import textwrap
 import tempfile
 import logging
 import math
+import platform
 from collections import Sequence
 from tzwhere import tzwhere
 import tinytools as tt
@@ -200,8 +201,10 @@ class GeoImage(object):
             cmd.append(file_temp.name)
             for i in dfile_tiles: cmd.append(i)
 
-            # Execute the buildvrt command
-            tt.cmd_line.exec_cmd(cmd)
+            # Execute the buildvrt command and print the output via logging.
+            dump = tt.cmd_line.exec_cmd(cmd,ret_output=True)
+            logger.debug(dump)
+            del dump
             # gdal does not issue errors to the command line,
             # so try/except on tt.cmd_line.exec_cmd won't work...
             # Check that file exists to see if the buildvrt succeeded.
@@ -866,32 +869,87 @@ class GeoImage(object):
             return projx, projy
 
 
-    def get_data(self, component=None,
-                       bands=None,
-                       window=None,
-                       buffer=None,
-                       geom=None,
-                       mask=False,
-                       mask_all_touched=False,
-                       virtual=False,
-                       return_location=False,
-                       buf_xsize=None,
-                       buf_ysize=None,
-                       buf_type=None):
+    def get_data(self, component = None,
+                       bands = None,
+                       window = None,
+                       buffer = None,
+                       geom = None,
+                       mask = False,
+                       mask_all_touched = False,
+                       return_location = False,
+                       boundless = True,
+                       virtual = False):
+        """
+        The central method for extracting pixel data from an image.  It
+        provides several options that define the region of the image from
+        which pixels are pulled and how the data is returned to the users.
 
-        """Read data from geo-image file.  If component is specified and
-        this is a .vrt or .til file, then it will pull only the data from
-        the file specified in self.dfile_tiles.  Component is specified base 1.
+        The returned numpy array follows the gdal convention usding a
+        bands-first format (bands, x, y).  If a single band is requested,
+        the first dimension will be singular.  Numpy squeeze can be used
+        to quickly remove the singular dimension.  The bands-first format
+        can be quickly converted to a bands-last format to more easily work
+        with other image processing packages using
+        tinytools.np_img.conv_to_bandslast (or the short block of numpy code
+        the function calls).
 
-        The isn't generally a reason to call both component and window,
+        There isn't generally a reason to call both component and window,
         but it isn't explicitly disallowed.  If window and component are both
         specified, the resulting data window is relative to the coordinates
         of the specified component.
 
-        If return location=True, the function also returns the upper-left pixel
-        coordinates.
+        Spectral processing (i.e. at sensor radiance and TOA reflectance) and
+        band aliasing are availble in the higher level classes that
+        understand the meta data of specific sensors (i.e. DGImage).
 
-        (TO DO: DETAILED DOCUMENTATION OF INPUT AND OUTPUT! WHAT DO THE ARGUMENTS MEAN?)
+        Parameters
+        ----------
+        component : int
+            Retrive data from a specific tile (base 1).  If the file in not
+            a tiled format, there is only a single component.  Order of the
+            tiles is stored in GeoImage.files.dfile_tiles.
+        bands : list of ints
+            The band numbers (base 1) to be retrieved.
+        window : list of ints
+            The window from which to retrive data in the format
+            [xoff, yoff, x_window_size, y_window_size].  An error will be
+            raise in no valid pixels are requested.  If the window is
+            partially valid, the requested window will be padded.
+        buffer : int or length two list of ints
+            Number of pixels to add as a buffer around the requested pixels.
+            If an int, the same number will be added to both dimensions.  If
+            a list of two ints, they will be interprested as xpad and ypad.
+        geom : valid ogr or fiona geometry
+            A shape geometry to define the pixel retrieval region.  Must be
+            in the same projection as the image as no projection checking
+            can be done on a geometry object.
+        mask : bool
+            Should the returned array be a masked numpy array?  If requested,
+            invalid pixels will be masked as defined by pixels either
+            outside the image or outside the geometry, if passed.
+        mask_all_touched : bool
+            Should the mask operation use an all-touched algorithm.  Default
+            is center-touched.
+        virtual : bool
+            Should the returned numpy array use the gdal virtual raster
+            driver?  This is currently only an option on linux.
+        return_location : bool
+            Should the returned numpy array be returned in a tuple along
+            with the location information of the requested image region.
+        boundless : bool
+            Should pixels outside the image be returned as masked/padded
+            values (True, default) or should an error be raised (False).
+
+        Returns
+        ------
+        ndarray
+            Three dimensional numpy array of data from the requested region
+            of the image.
+        tuple
+            If return_location is True, a tuple will be returned with the
+            image numpy array as well as a dictionary specifying the location
+            information.
+
         """
 
         if component is not None:
@@ -962,73 +1020,73 @@ class GeoImage(object):
 
         # Handle out-of-bounds cases
         # (i.e. xoff = 0; buffer = 3; xoff - buffer)
-        # initialize buffer vars
-        np_xoff_buff = 0
-        np_yoff_buff = 0
-        np_xlim_buff = 0
-        np_ylim_buff = 0
+        if boundless:
+            # initialize buffer vars
+            np_xoff_buff = 0
+            np_yoff_buff = 0
+            np_xlim_buff = 0
+            np_ylim_buff = 0
 
-        if xoff < 0:
-            np_xoff_buff = xoff
-            win_xsize = win_xsize + xoff
-            xoff = 0
+            if xoff < 0:
+                np_xoff_buff = xoff
+                win_xsize = win_xsize + xoff
+                xoff = 0
 
-        if yoff < 0 :
-            np_yoff_buff = yoff
-            win_ysize = win_ysize + yoff
-            yoff = 0
+            if yoff < 0 :
+                np_yoff_buff = yoff
+                win_ysize = win_ysize + yoff
+                yoff = 0
 
-        xpos = xoff+win_xsize
-        xlim = self.meta.shape[1]
-        ypos = yoff+win_ysize
-        ylim = self.meta.shape[2]
+            xpos = xoff+win_xsize
+            xlim = self.meta.shape[1]
+            ypos = yoff+win_ysize
+            ylim = self.meta.shape[2]
 
-        if xpos > xlim:
-            np_xlim_buff = xpos-xlim
-            win_xsize = win_xsize-np_xlim_buff
-        if ypos > self.meta.shape[2]:
-            np_ylim_buff = ypos-ylim
-            win_ysize = win_ysize-np_ylim_buff
-
-        # # This code will just buffer window requests outside of the
-        # # image dimension, so I need to explicitly catch bad requests
-        # if np.abs(np_xoff_buff) > xbuff or \
-        #    np.abs(np_xlim_buff) > xbuff or \
-        #    np.abs(np_yoff_buff) > ybuff or \
-        #    np.abs(np_ylim_buff) > ybuff:
-        #    raise ValueError("Requested window is outside the image.")
-
-        # Read data
-        if virtual is True:
-            raise NotImplementedError('keyword argument not implemented yet.')
-        elif virtual is False:
-            # Read data one band at a time with ReadAsArray
-            for i,b in enumerate(bands):
-                bobj = obj.GetRasterBand(b)
-                # The try/except below is used to initialize the data variable...
-                # The first loop trigger the NameError, so the except is used to
-                # then initialize "data".
-                try:
-                    data[i,:,:] = bobj.ReadAsArray(xoff=xoff,
-                                                   yoff=yoff,
-                                                   win_xsize=win_xsize,
-                                                   win_ysize=win_ysize,
-                                                   buf_xsize=buf_xsize,
-                                                   buf_ysize=buf_ysize,
-                                                   buf_type=buf_type)
-                except NameError:
-                    zt = len(bands)
-                    dt = const.DICT_GDAL_TO_NP[bobj.DataType]
-                    data = np.empty([zt, win_ysize, win_xsize], dtype=dt)
-                    data[i,:,:] = bobj.ReadAsArray(xoff=xoff,
-                                                   yoff=yoff,
-                                                   win_xsize=win_xsize,
-                                                   win_ysize=win_ysize,
-                                                   buf_xsize=buf_xsize,
-                                                   buf_ysize=buf_ysize,
-                                                   buf_type=buf_type)
+            if xpos > xlim:
+                np_xlim_buff = xpos-xlim
+                win_xsize = win_xsize-np_xlim_buff
+            if ypos > self.meta.shape[2]:
+                np_ylim_buff = ypos-ylim
+                win_ysize = win_ysize-np_ylim_buff
         else:
-            raise ValueError("virtual keyword argument should be boolean.")
+            # else set the buffer vars to zero
+            np_xoff_buff = 0
+            np_yoff_buff = 0
+            np_xlim_buff = 0
+            np_ylim_buff = 0
+
+        # Check platform if virtual is requested
+        if virtual:
+            if platform.system() != 'Linux':
+                raise ValueError('The gdal virtual driver can only run '
+                                 'on the linux platform.')
+
+        ###############################
+        ##### Read the image data #####
+        ###############################
+        if not virtual:
+            # Read data one band at a time with ReadAsArray
+            zt = len(bands)
+            dt = const.DICT_GDAL_TO_NP[self.meta.gdal_dtype]
+            data = np.empty([zt, win_ysize, win_xsize], dtype=dt)
+            for i, b in enumerate(bands):
+                bobj = obj.GetRasterBand(b)
+                data[i, :, :] = bobj.ReadAsArray(xoff=xoff,
+                                                 yoff=yoff,
+                                                 win_xsize=win_xsize,
+                                                 win_ysize=win_ysize)
+        elif virtual:
+            data = obj.GetVirtualMemArray(xoff=xoff,
+                                          yoff=yoff,
+                                          xsize=win_xsize,
+                                          ysize=win_ysize,
+                                          bufxsize=win_xsize,
+                                          bufysize=win_ysize,
+                                          band_list=bands)
+            # Since the virtual api, returns 2d if only one band is requested,
+            # expand to the geoio standard 3d image.
+            if data.ndim == 2:
+                data = data[np.newaxis, :, :]
 
         # Convert numpy array to masked numpy array if requested.
         if mask and geom:
@@ -1149,6 +1207,42 @@ class GeoImage(object):
         raise ValueError("A geometry object was not able to be created from " \
                          "the value passed in.")
 
+    def downsample(self,arr=None,size=None,type='aggregation'):
+        """
+
+        Parameters
+        ----------
+        type : str
+
+        Returns
+        -------
+
+        """
+
+        import cv2
+
+        if not size:
+            raise ValueError('size parameter is required')
+
+        if type == 'aggregation':
+            type_cv_code = cv2.INTER_AREA
+        elif type == 'nearest':
+            type_cv_code = cv2.INTER_NEAREST
+
+        if arr is None:
+            arr = self.get_data()
+
+        out = np.empty([arr.shape[0]]+size)
+
+        for b in xrange(out.shape[0]):
+            out[b,:,:] = cv2.resize(arr[b,:,:],dsize=(50,50),dst=None,
+                                                interpolation=type_cv_code)
+
+        return out
+
+
+    def resample(self):
+        pass
 
     def write_img_like_this(self,new_fname,np_array,return_obj=False,
                             gdal_driver_name=None,options=[],
@@ -1506,14 +1600,3 @@ class GeoSet(Sequence):
     def get_data(self):
 
         pass
-
-from numpy.lib.stride_tricks import as_strided
-def block_view(A, block=(3,3), strides=(2,2)):
-        """Provide a 2D block view to 2D array. No error checking made.
-        Therefore meaningful (as implemented) only for blocks strictly
-        compatible with the shape of A."""
-        # simple shape and strides computations may seem at first strange
-        # unless one is able to recognize the 'tuple additions' involved ;-)
-        shape= (A.shape[0]/ block[0], A.shape[1]/ block[1])+ block
-        strides= (strides[0]* A.strides[0], strides[1]* A.strides[1])+ A.strides
-        return as_strided(A, shape= shape, strides= strides)
