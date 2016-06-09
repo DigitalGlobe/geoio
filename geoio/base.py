@@ -1240,8 +1240,19 @@ class GeoImage(object):
 
         return out
 
+    def downsample_internal(self):
+        pass
+
+    def downsample_like_that(self):
+        pass
 
     def resample(self):
+        pass
+
+    def just_resmaple_it(self):
+        """Method to choose resonable default for up or downsample size
+        and kernel.
+        """
         pass
 
     def write_img_like_this(self,new_fname,np_array,return_obj=False,

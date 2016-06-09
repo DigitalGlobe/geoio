@@ -6,6 +6,8 @@ import os as _os
 from base import GeoImage
 from dg import DGImage
 import constants
+import utils
+import downsample
 
 _logger = _logging.getLogger(__name__)
 
