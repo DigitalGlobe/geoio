@@ -1,48 +1,32 @@
-import numpy as np
-import itertools
+import imp
 import logging
-from numba import jit, vectorize
 from math import ceil, floor
+import numpy as np
+
+### Optional imports ###
+try:
+    import cv2
+    use_cv2 = True
+except ImportError:
+    use_cv2 = False
+
+try:
+    from numba import (jit, guvectorize, vectorize, float64, float32,
+                       int16, uint16, double)
+    use_numba = True
+except ImportError:
+    use_numba = False
 
 logger = logging.getLogger(__name__)
-
-@jit(nopython=True)
-def test1():
-    a=1
-    return a+1
-
-@vectorize
-def test2():
-    a = np.array([1,2,3])
-    return a.sum()
-
-
-# # Need to debug the following:
-# Out[204]:
-# array([[[ 161.25,  331.75,  389.75,  328.5 ,  372.75],
-#         [ 204.75,  432.25,  417.25,  336.  ,  348.  ],
-#         [ 215.  ,  424.5 ,  398.25,  311.75,  326.25],
-#         [ 202.  ,  348.  ,  309.  ,  300.5 ,  340.5 ],
-#         [ 204.5 ,  319.75,  307.75,  310.75,  311.  ]]])
-#
-# In [205]: geoio.utils.block_view(data[0,:,:].squeeze(),block=(2,2),strides=(2,2)).mean(axis=(2,3))
-# Out[205]:
-# array([[ 161.25,  204.75,  215.  ,  202.  ,  204.5 ],
-#        [ 331.75,  432.25,  424.5 ,  348.  ,  319.75],
-#        [ 389.75,  417.25,  398.25,  309.  ,  307.75],
-#        [ 328.5 ,  336.  ,  311.75,  300.5 ,  310.75],
-#        [ 372.75,  348.  ,  326.25,  340.5 ,  311.  ]])
-#
-# #### These are opposite!!!! ####
-
-
 
 def downsample(arr,
                shape = None,
                factor = None,
-               ul_corner = None,
+               corners = None,
                lr_corner = None,
-               method = 'aggregate'):
+               method = 'aggregate',
+               no_data_value = None):
+    """TBD"""
 
     # If arr comes in as a 2D array, assume this is a single band from
     # a 3D image and reshape accordingly
@@ -58,6 +42,9 @@ def downsample(arr,
     if method not in ['aggregate','nearest']:
         raise ValueError("The downsample method can be 'aggregate' or "
                          "'nearest'.")
+
+    if no_data_value:
+        arr = np.where(arr == no_data_value, 0, arr)
 
     if factor is not None:
         # Prep factor based on input type/format
@@ -106,92 +93,242 @@ def downsample(arr,
     logger.debug('beggining of y_steps: %s ...' % y_steps[:3])
     logger.debug('end of y_steps: ... %s' % y_steps[-3:])
 
-    print(x_steps)
-    print(y_steps)
+    return downsample_to_grid(arr,x_steps,y_steps,method)
 
-    # import ipdb; ipdb.set_trace()
+def downsample_to_grid(arr,x_steps,y_steps,method='aggregate',source=None):
+    """
+    Function to choose which execuatable to use based on efficiency and
+    availability.
 
-    if method == 'aggregate':
-        return aggregate(arr,x_steps,y_steps)
-    elif method == 'nearest':
-        raise NotImplementedError()
+    Parameters
+    ----------
+    arr
+    x_steps
+    y_steps
+    method
 
-#@jit(nopython=True)
-def aggregate(arr,x_steps,y_steps):
+    Returns
+    -------
 
-    # x_index = range(len(x_steps)-1)
-    # y_index = range(len(y_steps)-1)
+    """
 
-    out = np.empty((arr.shape[0],len(x_steps)-1, len(y_steps)-1))
+    global use_cv2
+    global use_numba
+    if source=='cv2':
+        use_cv2 = True
+        use_numba = False
+    elif source=='numba':
+        use_cv2 = False
+        use_numba = True
 
-
-    # for b in xrange(out.shape[0]):
-    #     for x,y in itertools.product(x_index,y_index):
-    #         # inner
-    #         x_inner = np.arange(np.ceil(x_steps[x]),np.floor(x_steps[x+1])+1)
-    #         y_inner = np.arange(np.ceil(y_steps[y]),np.floor(y_steps[y+1])+1)
-    #         agg = 0
-    #         out[b,x,y] = arr[b,x_index[x]:x_index[x+1],y_index[y]:y_index[y+1]]
-
-    if logger.isEnabledFor(logging.DEBUG):
-        talk = True
+    # Find the appropriate algorithm to run with.
+    if ((x_steps[0] == 0) and (x_steps[-1] == arr.shape[1]) and
+        (y_steps[0] == 0) and (y_steps[-1] == arr.shape[2]) and
+        use_cv2):
+        # If the requested steps are exact subsets of the image array and
+        # cv2 is available, use cv2 since it is fast.
+        if method == 'aggregate':
+            logger.debug('running aggregate with opencv::resize')
+            type_cv_code = cv2.INTER_AREA
+            return run_opencv_resize(arr,x_steps,y_steps,type_cv_code)
+        elif method == 'nearest':
+            logger.debug('running nearest neighbor downsample with '
+                         'opencv::resize')
+            type_cv_code = cv2.INTER_NEAREST
+            return run_opencv_resize(arr,x_steps,y_steps,type_cv_code)
+    elif use_numba:
+        # If cv2 isn't available or the requested steps are from a grid
+        # that doens't nicely overlap this image, use custom implementations
+        # from below.
+        if method == 'aggregate':
+            logger.debug('running aggregate with custom numba function.')
+            return run_numba_aggregate(arr,x_steps,y_steps)
+        elif method == 'nearest':
+            logger.debug('running nearest neighbor downsamples with '
+                         'custom numba function.')
+            raise NotImplementedError('Numba nearest neighbor '
+                                      'not implemented.')
     else:
-        talk = False
+        raise ValueError('No downsampling routine available for the '
+                         'requested parameters.  Either opencv or numba are '
+                         'needed to run the downsample calculations.  '
+                         'Additionally, if the requested grid does not '
+                         'align with the edges of the image, you can not '
+                         'use opencv and will need numba to run this '
+                         'function.  You can always just use get_data() '
+                         'and use an external resampling routine!')
+
+def run_opencv_resize(arr,x_steps,y_steps,type_cv_code):
+    """TBD"""
+    size = (len(x_steps)-1,len(y_steps)-1)
+    out = np.empty([arr.shape[0]]+list(size))
+
+    for b in xrange(out.shape[0]):
+        out[b,:,:] = cv2.resize(arr[b,:,:],dsize=size[::-1],dst=None,
+                                                interpolation=type_cv_code)
+    return out
+
+def run_numba_aggregate(arr,x_steps,y_steps):
+    """TBD"""
+    use_jit = False
+
+    if use_jit:
+        out = aggregate_numba_3d(arr,x_steps,y_steps)
+    else:
+        out = np.zeros((arr.shape[0],len(x_steps)-1,len(y_steps)-1),
+                       dtype=arr.dtype)
+        aggregate_guvec(arr,x_steps,y_steps,out)
+
+    return out
+
+
+@jit(nopython=True)
+def aggregate_pixel(arr,x_step,y_step):
+    """Aggregation code for a single pixel"""
+
+    # Set x/y to zero to mimic the setting in a loop
+    # Assumes x_step and y_step in an array-type of length 2
+    x = 0
+    y = 0
+
+    # initialize sum variable
+    s = 0.0
+
+    # sum center pixels
+    left = int(ceil(x_step[x]))
+    right = int(floor(x_step[x+1]))
+    top = int(ceil(y_step[y]))
+    bottom =  int(floor(y_step[y+1]))
+    s += arr[left:right,top:bottom].sum()
+
+    # Find edge weights
+    wl = left - x_step[x]
+    wr = x_step[x+1] - right
+    wt = top - y_step[y]
+    wb = y_step[y+1] - bottom
+    # sum edges - left
+    s += arr[left-1:left,top:bottom].sum() * wl
+    # sum edges - right
+    s += arr[right:right+1,top:bottom].sum() * wr
+    # sum edges - top
+    s += arr[left:right,top-1:top].sum() * wt
+    # sum edges - bottom
+    s += arr[left:right,bottom:bottom+1].sum() * wb
+
+    # sum corners ...
+    # ul
+    s += arr[left-1:left,top-1:top].sum() * wl * wt
+    # ur
+    s += arr[right:right+1,top-1:top].sum() * wr * wt
+    # ll
+    s += arr[left-1:left,bottom:bottom+1].sum() * wl * wb
+    # lr
+    s += arr[right:right+1,bottom:bottom+1].sum() * wr * wb
+
+    # calculate weight
+    weight = (x_step[x+1]-x_step[x])*(y_step[y+1]-y_step[y])
+
+    return s/float(weight)
+
+
+@jit(nopython=True)
+def aggregate_numba_3d(arr,x_steps,y_steps):
+    """TBD"""
+    out = np.zeros((arr.shape[0],len(x_steps)-1,len(y_steps)-1),
+                   dtype=arr.dtype)
 
     for b in xrange(out.shape[0]):
         for x in xrange(out.shape[1]):
             for y in xrange(out.shape[2]):
-
-                print(x)
-                print(y)
-
-                # import ipdb; ipdb.set_trace()
-
-                # Debug info for initial state of this block
-                if talk:
-                    logger.debug('*** Starting new block calculation ***')
-                    logger.debug('Block steps left/right: %s, %s' %
-                                                        (x_steps[x], x_steps[x+1]))
-                    logger.debug('Block steps top/bottom: %s, %s' %
-                                                        (y_steps[y], y_steps[y+1]))
-
-                # initialize sum variable
-                s = 0
-
-                # sum center pixels
-                left = int(ceil(x_steps[x]))
-                right = int(floor(x_steps[x+1]))
-                top = int(ceil(y_steps[y]))
-                bottom =  int(floor(y_steps[y+1]))
-                # if talk:
-                logger.debug('left, right, top, bottom: %s, %s, %s, %s' %
-                                                (left, right, top, bottom))
-
-                # import ipdb; ipdb.set_trace()
-
-                # for p in xrange(left,right+1,1):
-                #     for q in xrange(bottom,top+1,1):
-                #         logger.debug(p,q)
-                #         logger.debug(arr[b,p,q])
-                #         s += arr[b,p,q]
-                #         logger.debug(s)
-                #         logger.debug('---')
-
-                s += arr[b,left:right,top:bottom].sum()
-
-                # sum edges
-
-                # sum corners
-
-                # calculate weight
-                weight = (x_steps[x+1]-x_steps[x])*(y_steps[y+1]-y_steps[y])
-
-                if talk:
-                    logger.debug('sum is: %s' % s)
-                    logger.debug('weight is: %s' % weight)
-
-                    logger.debug('*** block sum complete ***')
-
-                out[b,y,x] = s/float(weight)
+                out[b,x,y] = aggregate_pixel(arr[b,:,:],
+                                             x_steps[x:x+2],
+                                             y_steps[y:y+2])
 
     return out
+
+
+@guvectorize(['void(uint16[:,:],float64[:],float64[:],uint16[:,:])'],
+            '(a,b),(c),(d),(m,n)',target='parallel',nopython=True)
+def aggregate_guvec(arr,x_steps,y_steps,out):
+    """TBD"""
+    for x in xrange(out.shape[0]):
+        for y in xrange(out.shape[1]):
+            out[x,y] = aggregate_pixel(arr,x_steps[x:x+2],y_steps[y:y+2])
+
+
+
+
+# def aggregate_cython(float[:,:,:] arr, float[:] x_steps, float[:] y_steps)
+#
+#     cdef float[:,:,:] out = np.zeros((arr.shape[0],len(x_steps)-1,len(y_steps)-1))
+#
+#     for b in xrange(out.shape[0]):
+#         for x in xrange(out.shape[1]):
+#             for y in xrange(out.shape[2]):
+#                 # initialize sum variable
+#                 s = 0.0
+#
+#                 # sum center pixels
+#                 left = int(ceil(x_steps[x]))
+#                 right = int(floor(x_steps[x+1]))
+#                 top = int(ceil(y_steps[y]))
+#                 bottom =  int(floor(y_steps[y+1]))
+#
+#                 s += arr[b,left:right,top:bottom].sum()
+#
+#                 # Find edge weights
+#                 wl = left - x_steps[x]
+#                 wr = x_steps[x+1] - right
+#                 wt = top - y_steps[y]
+#                 wb = y_steps[y+1] - bottom
+#                 # sum edges - left
+#                 s += arr[b,left-1:left,top:bottom].sum() * wl
+#                 # sum edges - right
+#                 s += arr[b,right:right+1,top:bottom].sum() * wr
+#                 # sum edges - top
+#                 s += arr[b,left:right,top-1:top].sum() * wt
+#                 # sum edges - bottom
+#                 s += arr[b,left:right,bottom:bottom+1].sum() * wb
+#
+#                 # sum corners ...
+#                 # ul
+#                 s += arr[b,left-1:left,top-1:top].sum() * wl * wt
+#                 # ur
+#                 s += arr[b,right:right+1,top-1:top].sum() * wr * wt
+#                 # ll
+#                 s += arr[b,left-1:left,bottom:bottom+1].sum() * wl * wb
+#                 # lr
+#                 s += arr[b,right:right+1,bottom:bottom+1].sum() * wr * wb
+#
+#                 # calculate weight
+#                 weight = (x_steps[x+1]-x_steps[x])*(y_steps[y+1]-y_steps[y])
+#
+#                 out[b,x,y] = s/float(weight)
+
+if __name__ == "__main__":
+
+    import time
+    import dgsamples
+    import geoio
+
+    img_small = geoio.GeoImage(dgsamples.wv2_longmont_1k.ms)
+    img_big = geoio.GeoImage('/mnt/panasas/nwl/data_HIRES/Gibraltar/VNIR/054312817010_01_P001_MUL/15FEB28112650-M2AS_R1C1-054312817010_01_P001.TIF')
+
+    data_small = img_small.get_data()
+    data_big = img_big.get_data()
+
+    start = time.time()
+    out_small_numba = downsample(data_small,shape=[300,300])
+    print('small numba:  %s' % (time.time()-start))
+
+    start = time.time()
+    out_small_cv2 = img_small.downsample(arr=data_small,size=(300,300))
+    print('small cv2:  %s' % (time.time()-start))
+
+    start = time.time()
+    out_big_numba = downsample(data_big,shape=[1000,1000])
+    print('big numba:  %s' % (time.time()-start))
+
+    start = time.time()
+    out_big_cv2 = img_big.downsample(arr=data_big,size=(1000,1000))
+    print('big cv2:  %s' % (time.time()-start))
