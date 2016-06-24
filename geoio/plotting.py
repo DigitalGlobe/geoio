@@ -19,6 +19,9 @@ def imshow(data,stretch=[0.02,0.98],stretch_type='linear'):
     stretch_type    type of stretch scale (only linear is curretly supported)
     """
 
+    if len(data.shape) == 2:
+        data = np.repeat(data[np.newaxis,:,:],3,axis=0)
+
     if len(data[:,0,0]) != 3:
         raise ValueError('This convenience function is only implemented ' \
                          'for three bands.  Use img.get_data(bands=...) to ' \
