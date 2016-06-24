@@ -25,6 +25,7 @@ import tinytools as tt
 
 # package import
 import constants as const
+import downsample
 
 # Module setup
 gdal.UseExceptions()
@@ -1207,7 +1208,13 @@ class GeoImage(object):
         raise ValueError("A geometry object was not able to be created from " \
                          "the value passed in.")
 
-    def downsample(self,arr=None,size=None,type='aggregation'):
+    def downsample(self,arr=None,
+                        shape = None,
+                        factor = None,
+                        ul_corner = None,
+                        lr_corner = None,
+                        method = 'aggregate',
+                        no_data_value = None):
         """
 
         Parameters
@@ -1218,42 +1225,34 @@ class GeoImage(object):
         -------
 
         """
+        raise NotImplementedError
 
-        import cv2
-
-        if not size:
-            raise ValueError('size parameter is required')
-
-        if type == 'aggregation':
-            type_cv_code = cv2.INTER_AREA
-        elif type == 'nearest':
-            type_cv_code = cv2.INTER_NEAREST
+        import ipdb; ipdb.set_trace()
 
         if arr is None:
             arr = self.get_data()
 
-        out = np.empty([arr.shape[0]]+size)
-
-        for b in xrange(out.shape[0]):
-            out[b,:,:] = cv2.resize(arr[b,:,:],dsize=(50,50),dst=None,
-                                                interpolation=type_cv_code)
-
-        return out
-
-    def downsample_internal(self):
-        pass
+        return downsample.downsample(arr,
+                                     shape = shape,
+                                     factor = factor,
+                                     ul_corner = ul_corner,
+                                     lr_corner = lr_corner,
+                                     method = method,
+                                     no_data_value = no_data_value)
 
     def downsample_like_that(self):
-        pass
+        """Calculate necessary downsampling parameters from another geoio
+        image object and use to run downsampling."""
+        raise NotImplementedError
 
     def resample(self):
-        pass
+        raise NotImplementedError
 
     def just_resmaple_it(self):
         """Method to choose resonable default for up or downsample size
         and kernel.
         """
-        pass
+        raise NotImplementedError
 
     def write_img_like_this(self,new_fname,np_array,return_obj=False,
                             gdal_driver_name=None,options=[],
