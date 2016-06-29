@@ -25,7 +25,8 @@ def downsample(arr,
                corners = None,
                lr_corner = None,
                method = 'aggregate',
-               no_data_value = None):
+               no_data_value = None,
+               source = None):
     """TBD"""
 
     # If arr comes in as a 2D array, assume this is a single band from
@@ -93,7 +94,7 @@ def downsample(arr,
     logger.debug('beggining of y_steps: %s ...' % y_steps[:3])
     logger.debug('end of y_steps: ... %s' % y_steps[-3:])
 
-    return downsample_to_grid(arr,x_steps,y_steps,method)
+    return downsample_to_grid(arr,x_steps,y_steps,method,source)
 
 def downsample_to_grid(arr,x_steps,y_steps,method='aggregate',source=None):
     """
@@ -246,8 +247,14 @@ def aggregate_numba_3d(arr,x_steps,y_steps):
 
     return out
 
-
-@guvectorize(['void(uint16[:,:],float64[:],float64[:],uint16[:,:])'],
+# The types handled are the same in contstants.py DICT_GDAL_TO_NP
+@guvectorize(['void(uint8[:,:],float64[:],float64[:],uint8[:,:])',
+              'void(uint16[:,:],float64[:],float64[:],uint16[:,:])',
+              'void(uint32[:,:],float64[:],float64[:],uint32[:,:])',
+              'void(int16[:,:],float64[:],float64[:],int16[:,:])',
+              'void(int32[:,:],float64[:],float64[:],int32[:,:])',
+              'void(float32[:,:],float64[:],float64[:],float32[:,:])',
+              'void(float64[:,:],float64[:],float64[:],float64[:,:])'],
             '(a,b),(c),(d),(m,n)',target='parallel',nopython=True)
 def aggregate_guvec(arr,x_steps,y_steps,out):
     """TBD"""
@@ -305,30 +312,39 @@ def aggregate_guvec(arr,x_steps,y_steps,out):
 #
 #                 out[b,x,y] = s/float(weight)
 
-if __name__ == "__main__":
 
+def main():
     import time
     import dgsamples
     import geoio
 
     img_small = geoio.GeoImage(dgsamples.wv2_longmont_1k.ms)
-    img_big = geoio.GeoImage('/mnt/panasas/nwl/data_HIRES/Gibraltar/VNIR/054312817010_01_P001_MUL/15FEB28112650-M2AS_R1C1-054312817010_01_P001.TIF')
-
-    data_small = img_small.get_data()
-    data_big = img_big.get_data()
+    data_small = img_small.get_data().astype('uint32')
 
     start = time.time()
-    out_small_numba = downsample(data_small,shape=[300,300])
+    out_small_numba = downsample(data_small,shape=[300,300],source='numba')
     print('small numba:  %s' % (time.time()-start))
 
     start = time.time()
-    out_small_cv2 = img_small.downsample(arr=data_small,size=(300,300))
+    out_small_cv2 = downsample(arr=data_small,shape=(300,300),source='cv2')
     print('small cv2:  %s' % (time.time()-start))
 
-    start = time.time()
-    out_big_numba = downsample(data_big,shape=[1000,1000])
-    print('big numba:  %s' % (time.time()-start))
+    print('Max diff is:  %s' % (out_small_numba-out_small_cv2).max())
+    print('Min diff is:  %s' % (out_small_numba-out_small_cv2).min())
 
-    start = time.time()
-    out_big_cv2 = img_big.downsample(arr=data_big,size=(1000,1000))
-    print('big cv2:  %s' % (time.time()-start))
+    # img_big = geoio.GeoImage('/mnt/panasas/nwl/data_HIRES/Gibraltar/VNIR/054312817010_01_P001_MUL/15FEB28112650-M2AS_R1C1-054312817010_01_P001.TIF')
+    # data_big = img_big.get_data()
+    #
+    # start = time.time()
+    # out_big_numba = downsample(data_big,shape=[1000,1000],source='numba')
+    # print('big numba:  %s' % (time.time()-start))
+    #
+    # start = time.time()
+    # out_big_cv2 = downsample(arr=data_big,shape=(1000,1000),source='cv2')
+    # print('big cv2:  %s' % (time.time()-start))
+    #
+    # print('Max diff is:  %s' % (out_big_numba-out_big_cv2).max())
+    # print('Min diff is:  %s' % (out_big_numba-out_big_cv2).min())
+
+if __name__ == "__main__":
+    main()
