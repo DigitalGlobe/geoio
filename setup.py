@@ -15,6 +15,10 @@ install_requires = [
     'numpy',
     'tinytools'
     ]
+    # optional libraries for additional capabilities:
+    # 'matplotlib'
+    # 'cv2'
+    # 'numba'
 
 tests_require = [
     'dgsamples'
