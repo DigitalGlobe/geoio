@@ -27,7 +27,31 @@ def downsample(arr,
                method = 'aggregate',
                no_data_value = None,
                source = None):
-    """TBD"""
+    """
+    Downsampling an array with either a custiom routine from below or
+    cv2 based on which options is available for a given downsample.
+        Parameters
+    ----------
+    arr : array_like
+        Image data in a two or three dimension array in band-first order.
+    shape : list
+        Shape of the desired output array.
+    factor : integer, float, or length two iterable
+        Factor by which to scale the image (must be less than one).
+    corners : NotImplemented
+    lr_corner : NotImplemented
+    method : strings
+        Method to use for the downsample - 'aggregate' or 'nearest'
+    no_data_value : int
+        Data value to treat as no_data
+    source : strings
+        Package to use for algorithm - opencv ('cv2') or custom 'numba' below.
+
+    Returns
+    -------
+    ndarray
+        Three dimensional numpy array of downsampled data
+    """
 
     # If arr comes in as a 2D array, assume this is a single band from
     # a 3D image and reshape accordingly
