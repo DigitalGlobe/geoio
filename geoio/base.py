@@ -1211,46 +1211,63 @@ class GeoImage(object):
     def downsample(self,arr=None,
                         shape = None,
                         factor = None,
-                        ul_corner = None,
-                        lr_corner = None,
+                        corners = None,
                         method = 'aggregate',
-                        no_data_value = None):
+                        no_data_value = None,
+                        source = None):
         """
-
-        Parameters
-        ----------
-        type : str
-
-        Returns
-        -------
-
+        Downsample array with function from geoio.downsample.py.  The methods
+        available are 'aggregate' and 'nearest'.  If the data arr is not
+        specified, all bands will be retrieved from the image object.  For
+        detailed documentation, see geoio.downsample.downsample.
         """
-        raise NotImplementedError
-
-        import ipdb; ipdb.set_trace()
 
         if arr is None:
+            logger.debug('Array not passed in, retrieving all bands...')
             arr = self.get_data()
 
         return downsample.downsample(arr,
                                      shape = shape,
                                      factor = factor,
-                                     ul_corner = ul_corner,
-                                     lr_corner = lr_corner,
+                                     corners = corners,
                                      method = method,
-                                     no_data_value = no_data_value)
+                                     no_data_value = no_data_value,
+                                     source = source)
 
-    def downsample_like_that(self):
-        """Calculate necessary downsampling parameters from another geoio
-        image object and use to run downsampling."""
+    def downsample_like_that(self,ext_img,arr=None):
+        """Pull downsampling parameters from another geoio image object and
+        use them to run downsampling."""
+
         raise NotImplementedError
 
+        gt = img.meta.geo_transform
+        xsize = img.meta.shape[1]
+        ysize = img.meta.shape[2]
+
+        if arr is None:
+            arr = self.get_data()
+
+        return downsample.downsample(arr,)
+
+    def downsample_to_grid(self,x_steps,y_steps,no_data_value=None,
+                                        method='aggregate',source=None):
+        """Direct call to grid downsample for geoio.downsample."""
+
+        return downsample.downsample_to_grid(x_steps,
+                                             y_steps,
+                                             no_data_value=no_data_value,
+                                             method=method,
+                                             source=source)
+
+
     def resample(self):
+        """Method to call resample operations.  The output of this operation
+        should be at or above the resolution of the input data.  Otherwise,
+        downsampling code should be used."""
         raise NotImplementedError
 
     def just_resmaple_it(self):
-        """Method to choose resonable default for up or downsample size
-        and kernel.
+        """Method to choose resonable default for up or downsample size.
         """
         raise NotImplementedError
 

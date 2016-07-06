@@ -23,7 +23,6 @@ def downsample(arr,
                shape = None,
                factor = None,
                corners = None,
-               lr_corner = None,
                method = 'aggregate',
                no_data_value = None,
                source = None):
@@ -38,8 +37,10 @@ def downsample(arr,
         Shape of the desired output array.
     factor : integer, float, or length two iterable
         Factor by which to scale the image (must be less than one).
-    corners : NotImplemented
-    lr_corner : NotImplemented
+    corners : length three array-like of length two array-like objects
+        List of corner information in the format [[upper_left_x, upper_left_y],
+        [lower_right_x, lower_right_y],[x_resolution,y_resolution]].  All
+        values should be specified in pixel space. i.e. [[0,0],[500,500],[5,5]]
     method : strings
         Method to use for the downsample - 'aggregate' or 'nearest'
     no_data_value : int
@@ -58,18 +59,13 @@ def downsample(arr,
     if len(arr.shape) == 2:
         arr = arr[np.newaxis, :, :]
 
-    if shape and factor:
-        raise ValueError('Either shape or factor can be specificed, not both.')
-
-    if not shape and not factor:
-        raise ValueError('Either shape or factor needs to be specified.')
+    if len([x for x in [shape, factor, corners] if x is None]) != 2:
+        raise ValueError('Either shape, factor, or corners should be '
+                         'specified.')
 
     if method not in ['aggregate','nearest']:
         raise ValueError("The downsample method can be 'aggregate' or "
                          "'nearest'.")
-
-    if no_data_value:
-        arr = np.where(arr == no_data_value, 0, arr)
 
     if factor is not None:
         # Prep factor based on input type/format
@@ -86,8 +82,18 @@ def downsample(arr,
             raise ValueError('The requested downsample shape should be less '
                              'than the array passed in.')
 
+    if corners is not None:
+        if len(corners) != 3:
+            raise ValueError('Corners needs to be three array-like elements '
+                             'that desribe the upper-left, lower-right, '
+                             'and x/y resolutions in pixel space.  i.e. '
+                             '[[-1,-2.1],[500,501],[5,5]]  Any pixels that '
+                             'are not divisible by the given resolution '
+                             'will be discarded.')
+
+
     # Set x_steps and y_steps for the downsampling process below
-    if shape:
+    if shape is not None:
         x_start = 0
         x_stop = arr.shape[1] # no -1 to bracket for base 0 indexing
         x_num = shape[0]+1 # +1 to index on both sides of block.
@@ -95,13 +101,21 @@ def downsample(arr,
         y_stop = arr.shape[2] # no -1 to bracket for base 0 indexing
         y_num = shape[1]+1 # +1 to index on both sides of block.
 
-    if factor:
+    if factor is not None:
         x_start = 0
         x_stop = arr.shape[1]
         x_num = int(round(arr.shape[1]*factor[0]))+1
         y_start = 0
         y_stop = arr.shape[2]
         y_num = int(round(arr.shape[2]*factor[1]))+1
+
+    if corners is not None:
+        x_start = corners[0][0]
+        y_start = corners[0][1]
+        x_stop = corners[1][0]
+        y_stop = corners[1][1]
+        x_num = int((x_stop-x_start)/corners[2][0])+1
+        y_num = int((y_stop-y_start)/corners[2][1])+1
 
     x_steps = np.linspace(x_start,x_stop,x_num)
     y_steps = np.linspace(y_start,y_stop,y_num)
@@ -118,9 +132,10 @@ def downsample(arr,
     logger.debug('beggining of y_steps: %s ...' % y_steps[:3])
     logger.debug('end of y_steps: ... %s' % y_steps[-3:])
 
-    return downsample_to_grid(arr,x_steps,y_steps,method,source)
+    return downsample_to_grid(arr,x_steps,y_steps,no_data_value,method,source)
 
-def downsample_to_grid(arr,x_steps,y_steps,method='aggregate',source=None):
+def downsample_to_grid(arr,x_steps,y_steps,no_data_value=None,
+                                            method='aggregate',source=None):
     """
     Function to choose which execuatable to use based on efficiency and
     availability.
@@ -146,6 +161,9 @@ def downsample_to_grid(arr,x_steps,y_steps,method='aggregate',source=None):
         use_cv2 = False
         use_numba = True
 
+    if no_data_value:
+        arr = np.where(arr == no_data_value, 0, arr)
+
     # Find the appropriate algorithm to run with.
     if ((x_steps[0] == 0) and (x_steps[-1] == arr.shape[1]) and
         (y_steps[0] == 0) and (y_steps[-1] == arr.shape[2]) and
@@ -155,19 +173,19 @@ def downsample_to_grid(arr,x_steps,y_steps,method='aggregate',source=None):
         if method == 'aggregate':
             logger.debug('running aggregate with opencv::resize')
             type_cv_code = cv2.INTER_AREA
-            return run_opencv_resize(arr,x_steps,y_steps,type_cv_code)
+            out = run_opencv_resize(arr,x_steps,y_steps,type_cv_code)
         elif method == 'nearest':
             logger.debug('running nearest neighbor downsample with '
                          'opencv::resize')
             type_cv_code = cv2.INTER_NEAREST
-            return run_opencv_resize(arr,x_steps,y_steps,type_cv_code)
+            out = run_opencv_resize(arr,x_steps,y_steps,type_cv_code)
     elif use_numba:
         # If cv2 isn't available or the requested steps are from a grid
         # that doens't nicely overlap this image, use custom implementations
         # from below.
         if method == 'aggregate':
             logger.debug('running aggregate with custom numba function.')
-            return run_numba_aggregate(arr,x_steps,y_steps)
+            out = run_numba_aggregate(arr,x_steps,y_steps)
         elif method == 'nearest':
             logger.debug('running nearest neighbor downsamples with '
                          'custom numba function.')
@@ -182,6 +200,11 @@ def downsample_to_grid(arr,x_steps,y_steps,method='aggregate',source=None):
                          'use opencv and will need numba to run this '
                          'function.  You can always just use get_data() '
                          'and use an external resampling routine!')
+
+    if no_data_value:
+        return np.where(out == 0, no_data_value, out)
+    else:
+        return out
 
 def run_opencv_resize(arr,x_steps,y_steps,type_cv_code):
     """TBD"""
@@ -343,7 +366,7 @@ def main():
     import geoio
 
     img_small = geoio.GeoImage(dgsamples.wv2_longmont_1k.ms)
-    data_small = img_small.get_data().astype('uint32')
+    data_small = img_small.get_data()
 
     start = time.time()
     out_small_numba = downsample(data_small,shape=[300,300],source='numba')
