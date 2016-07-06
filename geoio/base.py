@@ -1234,20 +1234,39 @@ class GeoImage(object):
                                      no_data_value = no_data_value,
                                      source = source)
 
-    def downsample_like_that(self,ext_img,arr=None):
+    def downsample_like_that(self,ext_img,arr = None,**kwargs):
         """Pull downsampling parameters from another geoio image object and
-        use them to run downsampling."""
+        use them to run downsampling.  Currently assumes that they are in the
+        same projection.  kwargs can be the method, no_data_value, or source
+        arguments that will be passed to geoio.downsample.downsample."""
 
-        raise NotImplementedError
+        ####
+        # Eventually add code to check and unify projection
+        ####
+        gt = self.meta.geo_transform
 
-        gt = img.meta.geo_transform
-        xsize = img.meta.shape[1]
-        ysize = img.meta.shape[2]
+        # Set info for corners call
+        ext_gt = ext_img.meta.geo_transform
+        ext_res = ext_img.meta.resolution
+        ext_shape = ext_img.meta.shape[1:]
+        ul_corner = [ext_img.meta.extent[x] for x in [0,2]]
+        ul_corner_pix = self.proj_to_raster(ul_corner[0],ul_corner[1])
+        lr_corner = [ext_img.meta.extent[x] for x in [1,3]]
+        lr_corner_pix = self.proj_to_raster(lr_corner[0],lr_corner[1])
+        ext_corners = [ul_corner_pix, lr_corner_pix, ext_res]
 
         if arr is None:
             arr = self.get_data()
 
-        return downsample.downsample(arr,)
+        if kwargs.has_key('no_data_value'):
+            no_data_value = kwargs['no_data_value']
+            del kwargs['no_data_value']
+        elif self.meta.no_data_value:
+            no_data_value = self.meta.no_data_value
+        else:
+            no_data_value = None
+
+        return downsample.downsample(arr,corners = ext_corners,**kwargs)
 
     def downsample_to_grid(self,x_steps,y_steps,no_data_value=None,
                                         method='aggregate',source=None):
