@@ -1266,7 +1266,9 @@ class GeoImage(object):
         else:
             no_data_value = None
 
-        return downsample.downsample(arr,corners = ext_corners,**kwargs)
+        return downsample.downsample(arr,extent=[ul_corner_pix,lr_corner_pix],
+                                         shape=ext_shape,
+                                         **kwargs)
 
     def downsample_to_grid(self,x_steps,y_steps,no_data_value=None,
                                         method='aggregate',source=None):

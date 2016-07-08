@@ -22,14 +22,15 @@ logger = logging.getLogger(__name__)
 def downsample(arr,
                shape = None,
                factor = None,
-               corners = None,
+               extent = None,
                method = 'aggregate',
                no_data_value = None,
                source = None):
     """
     Downsampling an array with either a custiom routine from below or
     cv2 based on which options is available for a given downsample.
-        Parameters
+
+    Parameters
     ----------
     arr : array_like
         Image data in a two or three dimension array in band-first order.
@@ -37,10 +38,10 @@ def downsample(arr,
         Shape of the desired output array.
     factor : integer, float, or length two iterable
         Factor by which to scale the image (must be less than one).
-    corners : length three array-like of length two array-like objects
-        List of corner information in the format [[upper_left_x, upper_left_y],
-        [lower_right_x, lower_right_y],[x_resolution,y_resolution]].  All
-        values should be specified in pixel space. i.e. [[0,0],[500,500],[5,5]]
+    extent : length two array-like of two length-two array-like
+        List of upper-left and lower-right corner coordinates in pixel space.
+        All values should be specified in pixel space.
+        i.e. [[-1,-2],[502,501]]
     method : strings
         Method to use for the downsample - 'aggregate' or 'nearest'
     no_data_value : int
@@ -59,13 +60,25 @@ def downsample(arr,
     if len(arr.shape) == 2:
         arr = arr[np.newaxis, :, :]
 
-    if len([x for x in [shape, factor, corners] if x is None]) != 2:
-        raise ValueError('Either shape, factor, or corners should be '
-                         'specified.')
+    # Check input parameters
+    if shape and factor:
+        raise ValueError('Either shape or factor can be specificed, not both.')
 
-    if method not in ['aggregate','nearest']:
-        raise ValueError("The downsample method can be 'aggregate' or "
-                         "'nearest'.")
+    if not shape and not factor:
+        raise ValueError('Either shape or factor needs to be specified.')
+
+    if extent is not None:
+        if (len(extent) != 2) and (len(extent[0]) != 2) and \
+                                                (len(extent[1]) != 2) :
+            raise ValueError('extent needs to be an array-like object of '
+                             'length two.  It should desribe the upper-left '
+                             'and upper-right corners of '
+                             'the desired object in pixels space as '
+                             '[[ul_x, ul_y], [lr_x, lr_y]] and can describe '
+                             'points outside the image extent, '
+                             'i.e. [[-1,-2.1],[500,501]].  The shape or '
+                             'factor parameter must also be provided to '
+                             'describe the size of the requested array.')
 
     if factor is not None:
         # Prep factor based on input type/format
@@ -82,14 +95,10 @@ def downsample(arr,
             raise ValueError('The requested downsample shape should be less '
                              'than the array passed in.')
 
-    if corners is not None:
-        if len(corners) != 3:
-            raise ValueError('Corners needs to be three array-like elements '
-                             'that desribe the upper-left, lower-right, '
-                             'and x/y resolutions in pixel space.  i.e. '
-                             '[[-1,-2.1],[500,501],[5,5]]  Any pixels that '
-                             'are not divisible by the given resolution '
-                             'will be discarded.')
+    # Check other input parameters
+    if method not in ['aggregate','nearest']:
+        raise ValueError("The downsample method can be 'aggregate' or "
+                         "'nearest'.")
 
 
     # Set x_steps and y_steps for the downsampling process below
@@ -109,13 +118,11 @@ def downsample(arr,
         y_stop = arr.shape[2]
         y_num = int(round(arr.shape[2]*factor[1]))+1
 
-    if corners is not None:
-        x_start = corners[0][0]
-        y_start = corners[0][1]
-        x_stop = corners[1][0]
-        y_stop = corners[1][1]
-        x_num = int((x_stop-x_start)/corners[2][0])+1
-        y_num = int((y_stop-y_start)/corners[2][1])+1
+    if extent is not None:
+        x_start = extent[0][0]
+        x_stop = extent[1][0]
+        y_start = extent[0][1]
+        y_stop = extent[1][1]
 
     x_steps = np.linspace(x_start,x_stop,x_num)
     y_steps = np.linspace(y_start,y_stop,y_num)
