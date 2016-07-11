@@ -38,10 +38,10 @@ def downsample(arr,
         Shape of the desired output array.
     factor : integer, float, or length two iterable
         Factor by which to scale the image (must be less than one).
-    extent : length two array-like of two length-two array-like
-        List of upper-left and lower-right corner coordinates in pixel space.
-        All values should be specified in pixel space.
-        i.e. [[-1,-2],[502,501]]
+    extent : length four array-like
+        List of upper-left and lower-right corner coordinates for the edges
+        of the resample.  Coordinates should be expressed in pixel space.
+        i.e. [-1,-2,502,501]
     method : strings
         Method to use for the downsample - 'aggregate' or 'nearest'
     no_data_value : int
@@ -68,15 +68,14 @@ def downsample(arr,
         raise ValueError('Either shape or factor needs to be specified.')
 
     if extent is not None:
-        if (len(extent) != 2) and (len(extent[0]) != 2) and \
-                                                (len(extent[1]) != 2) :
+        if (len(extent) != 4):
             raise ValueError('extent needs to be an array-like object of '
-                             'length two.  It should desribe the upper-left '
-                             'and upper-right corners of '
-                             'the desired object in pixels space as '
-                             '[[ul_x, ul_y], [lr_x, lr_y]] and can describe '
+                             'length four.  It should desribe the upper-left '
+                             'and lower-right corners of '
+                             'the desired resmple area in pixels space as '
+                             '[ul_x, ul_y, lr_x, lr_y] and can describe '
                              'points outside the image extent, '
-                             'i.e. [[-1,-2.1],[500,501]].  The shape or '
+                             'i.e. [-1, -2.1, 500, 501].  The shape or '
                              'factor parameter must also be provided to '
                              'describe the size of the requested array.')
 
@@ -100,7 +99,6 @@ def downsample(arr,
         raise ValueError("The downsample method can be 'aggregate' or "
                          "'nearest'.")
 
-
     # Set x_steps and y_steps for the downsampling process below
     if shape is not None:
         x_start = 0
@@ -119,10 +117,10 @@ def downsample(arr,
         y_num = int(round(arr.shape[2]*factor[1]))+1
 
     if extent is not None:
-        x_start = extent[0][0]
-        x_stop = extent[1][0]
-        y_start = extent[0][1]
-        y_stop = extent[1][1]
+        x_start = extent[0]
+        x_stop = extent[2]
+        y_start = extent[1]
+        y_stop = extent[3]
 
     x_steps = np.linspace(x_start,x_stop,x_num)
     y_steps = np.linspace(y_start,y_stop,y_num)

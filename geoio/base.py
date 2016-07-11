@@ -275,7 +275,7 @@ class GeoImage(object):
         # The following is inverted because xstart, xend, etc are calculated
         # in pixel space and this is inverted from the North = max, South = min
         # paradigm.
-        prefixes['Extent'] = (['extent'],' (xmin, xmax, ymin, ymax)')
+        prefixes['Extent'] = (['extent'],' (ul_x, ul_y, lr_x, lr_y)')
         prefixes['Projection String'] = (['pprint_proj_string'],'')
         prefixes['Geo Transform'] = (['geo_transform'],'')
         prefixes['Authority'] = (['authority'], '')
@@ -668,23 +668,44 @@ class GeoImage(object):
 
         coord_trans = osr.CoordinateTransformation(lyr_sr,img_sr)
 
-        extent = lyr.GetExtent()
+        extent = self.ogr_extent_to_extent(lyr.GetExtent())
 
-        window = self._extent_to_window(extent,coord_trans)
+        window = self.extent_to_window(extent,coord_trans)
         [xoff, yoff, win_xsize, win_ysize] = window
 
         return self.get_data(window = window, **kwargs)
 
+    def ogr_extent_to_extent(self,ogr_extent):
 
-    def _extent_to_window(self,extent,coord_trans=None):
+        return [ogr_extent[0],ogr_extent[2],ogr_extent[1],ogr_extent[3]]
 
-        if not coord_trans:
-            warnings.warn('No projection checking is done.  Returning passed '
-                          'geometry in image space.')
+    def extent_to_window(self,extent,coord_trans=None):
+        """
+        Convert an extent in the form [ul_x, ul_y, lr_x, lr_y] in projection
+        space to a window of the form [xoff, yoff, win_xsize, win_ysize].
+        If a coord_trans is provided, it is used to convert between projections
+        before the window calculation is made.  This is provided since the
+        creation of this object can be somewhat expensive.
 
-        [minX, maxX, minY, maxY] = extent
-        ul_vec = [minX, maxY]
-        lr_vec = [maxX, minY]
+        Parameters
+        ----------
+        extent : list
+            extent in the form [ul_x, ul_y, lr_x, lr_y] to be converted to
+            a window list.
+        coord_trans : osr object
+            osr object that converts between two image projections.
+
+        Returns
+        -------
+        list
+            list that defines a pixel window of the form
+            [xoff, yoff, win_xsize, wind_ysize].
+
+        """
+
+        # Set corner vectors
+        ul_vec = extent[:2]
+        lr_vec = extent[2:]
 
         if coord_trans:
             # Online dobumentation says that there could be a bug in
@@ -989,8 +1010,8 @@ class GeoImage(object):
             # Set window size based on a geom object in image space
             # ToDo - Add all_touched option to this and mask function.
             g = self._instantiate_geom(geom)
-            extent = g.GetEnvelope()
-            window = self._extent_to_window(extent)
+            extent = self.ogr_extent_to_extent(g.GetEnvelope())
+            window = self.extent_to_window(extent)
             [xoff, yoff, win_xsize, win_ysize] = window
         else:
             # Else use extent of image to set extent params
@@ -1249,9 +1270,11 @@ class GeoImage(object):
         ext_gt = ext_img.meta.geo_transform
         ext_res = ext_img.meta.resolution
         ext_shape = ext_img.meta.shape[1:]
-        ul_corner = [ext_img.meta.extent[x] for x in [0,2]]
+        ul_corner = ext_img.meta.extent[:2]
+        #ul_corner = [ext_img.meta.extent[x] for x in [0,2]]
         ul_corner_pix = self.proj_to_raster(ul_corner[0],ul_corner[1])
-        lr_corner = [ext_img.meta.extent[x] for x in [1,3]]
+        lr_corner = ext_img.meta.extent[2:]
+        #lr_corner = [ext_img.meta.extent[x] for x in [1,3]]
         lr_corner_pix = self.proj_to_raster(lr_corner[0],lr_corner[1])
         ext_corners = [ul_corner_pix, lr_corner_pix, ext_res]
 
@@ -1266,7 +1289,7 @@ class GeoImage(object):
         else:
             no_data_value = None
 
-        return downsample.downsample(arr,extent=[ul_corner_pix,lr_corner_pix],
+        return downsample.downsample(arr,extent=ul_corner_pix+lr_corner_pix,
                                          shape=ext_shape,
                                          **kwargs)
 
@@ -1445,7 +1468,7 @@ def read_geo_file_info(fname_or_fobj):
 
     # Add to summary
     summary['resolution'] = (xres, yres)
-    summary['extent'] = (xstart, xend, ystart, yend)
+    summary['extent'] = (xstart, ystart, xend, yend)
 
     ### Get image projection and datum
     summary['projection_string'] = fobj.GetProjection()
