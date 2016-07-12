@@ -1232,7 +1232,7 @@ class GeoImage(object):
     def downsample(self,arr=None,
                         shape = None,
                         factor = None,
-                        corners = None,
+                        extent = None,
                         method = 'aggregate',
                         no_data_value = None,
                         source = None):
@@ -1250,7 +1250,7 @@ class GeoImage(object):
         return downsample.downsample(arr,
                                      shape = shape,
                                      factor = factor,
-                                     corners = corners,
+                                     extent = extent,
                                      method = method,
                                      no_data_value = no_data_value,
                                      source = source)

@@ -43,7 +43,8 @@ def downsample(arr,
         of the resample.  Coordinates should be expressed in pixel space.
         i.e. [-1,-2,502,501]
     method : strings
-        Method to use for the downsample - 'aggregate' or 'nearest'
+        Method to use for the downsample - 'aggregate', 'nearest', 'max', or
+        'min.
     no_data_value : int
         Data value to treat as no_data
     source : strings
@@ -95,7 +96,7 @@ def downsample(arr,
                              'than the array passed in.')
 
     # Check other input parameters
-    if method not in ['aggregate','nearest']:
+    if method not in ['aggregate','nearest','max','min']:
         raise ValueError("The downsample method can be 'aggregate' or "
                          "'nearest'.")
 
@@ -192,10 +193,15 @@ def downsample_to_grid(arr,x_steps,y_steps,no_data_value=None,
             logger.debug('running aggregate with custom numba function.')
             out = run_numba_aggregate(arr,x_steps,y_steps)
         elif method == 'nearest':
-            logger.debug('running nearest neighbor downsamples with '
+            logger.debug('running nearest neighbor downsample with '
                          'custom numba function.')
-            raise NotImplementedError('Numba nearest neighbor '
-                                      'not implemented.')
+            out = run_numba_nearest(arr, x_steps, y_steps)
+        elif method == 'max':
+            logger.debug('running max with custom numba function.')
+            out = run_numba_max(arr, x_steps, y_steps)
+        elif method == 'min':
+            logger.debug('running min with custom numba function.')
+            out = run_numba_min(arr, x_steps, y_steps)
     else:
         raise ValueError('No downsampling routine available for the '
                          'requested parameters.  Either opencv or numba are '
@@ -231,6 +237,30 @@ def run_numba_aggregate(arr,x_steps,y_steps):
         out = np.zeros((arr.shape[0],len(x_steps)-1,len(y_steps)-1),
                        dtype=arr.dtype)
         aggregate_guvec(arr,x_steps,y_steps,out)
+
+    return out
+
+def run_numba_nearest(arr,x_steps,y_steps):
+    """TBD"""
+    out = np.zeros((arr.shape[0],len(x_steps)-1,len(y_steps)-1),
+                   dtype=arr.dtype)
+    nearest_guvec(arr,x_steps,y_steps,out)
+
+    return out
+
+def run_numba_max(arr,x_steps,y_steps):
+    """TBD"""
+    out = np.zeros((arr.shape[0],len(x_steps)-1,len(y_steps)-1),
+                   dtype=arr.dtype)
+    max_guvec(arr,x_steps,y_steps,out)
+
+    return out
+
+def run_numba_min(arr,x_steps,y_steps):
+    """TBD"""
+    out = np.zeros((arr.shape[0],len(x_steps)-1,len(y_steps)-1),
+                   dtype=arr.dtype)
+    min_guvec(arr,x_steps,y_steps,out)
 
     return out
 
@@ -283,6 +313,67 @@ def aggregate_pixel(arr,x_step,y_step):
 
     return s/float(weight)
 
+@jit(nopython=True)
+def nearest_pixel(arr,x_step,y_step):
+    """Aggregation code for a single pixel"""
+
+    # Set x/y to zero to mimic the setting in a loop
+    # Assumes x_step and y_step in an array-type of length 2
+    x = 0
+    y = 0
+
+    # initialize sum variable
+    s = 0.0
+
+    # nearest neighbor
+    x_center = int(np.mean(x_step[x:x+2]))
+    y_center = int(np.mean(x_step[y:y+2]))
+    s += arr[x_center,y_center]
+
+    return s
+
+@jit(nopython=True)
+def max_pixel(arr,x_step,y_step):
+    """Aggregation code for a single pixel"""
+
+    # Set x/y to zero to mimic the setting in a loop
+    # Assumes x_step and y_step in an array-type of length 2
+    x = 0
+    y = 0
+
+    # initialize sum variable
+    s = 0.0
+
+    # sum center pixels
+    left = int(ceil(x_step[x]))
+    right = int(floor(x_step[x+1]))
+    top = int(ceil(y_step[y]))
+    bottom =  int(floor(y_step[y+1]))
+    s += arr[left-1:right+1,top-1:bottom+1].max()
+
+    return s
+
+@jit(nopython=True)
+def min_pixel(arr,x_step,y_step):
+    """Aggregation code for a single pixel"""
+
+    # Set x/y to zero to mimic the setting in a loop
+    # Assumes x_step and y_step in an array-type of length 2
+    x = 0
+    y = 0
+
+    # initialize sum variable
+    s = 0.0
+
+    # sum center pixels
+    left = int(ceil(x_step[x]))
+    right = int(floor(x_step[x+1]))
+    top = int(ceil(y_step[y]))
+    bottom =  int(floor(y_step[y+1]))
+    s += arr[left-1:right+1,top-1:bottom+1].min()
+
+    return s
+
 
 @jit(nopython=True)
 def aggregate_numba_3d(arr,x_steps,y_steps):
@@ -308,12 +399,60 @@ def aggregate_numba_3d(arr,x_steps,y_steps):
               'void(float32[:,:],float64[:],float64[:],float32[:,:])',
               'void(float64[:,:],float64[:],float64[:],float64[:,:])'],
             '(a,b),(c),(d),(m,n)',target='parallel',nopython=True)
-def aggregate_guvec(arr,x_steps,y_steps,out):
+def aggregate_guvec(arr, x_steps, y_steps, out):
     """TBD"""
     for x in xrange(out.shape[0]):
         for y in xrange(out.shape[1]):
             out[x,y] = aggregate_pixel(arr,x_steps[x:x+2],y_steps[y:y+2])
 
+# The types handled are the same in contstants.py DICT_GDAL_TO_NP
+@guvectorize(['void(uint8[:,:],float64[:],float64[:],uint8[:,:])',
+              'void(uint16[:,:],float64[:],float64[:],uint16[:,:])',
+              'void(uint32[:,:],float64[:],float64[:],uint32[:,:])',
+              'void(int16[:,:],float64[:],float64[:],int16[:,:])',
+              'void(int32[:,:],float64[:],float64[:],int32[:,:])',
+              'void(float32[:,:],float64[:],float64[:],float32[:,:])',
+              'void(float64[:,:],float64[:],float64[:],float64[:,:])'],
+             '(a,b),(c),(d),(m,n)', target='parallel',
+             nopython=True)
+def nearest_guvec(arr, x_steps, y_steps, out):
+    """TBD"""
+    for x in xrange(out.shape[0]):
+        for y in xrange(out.shape[1]):
+            out[x, y] = nearest_pixel(arr,x_steps[x:x + 2],y_steps[y:y + 2])
+
+# The types handled are the same in contstants.py DICT_GDAL_TO_NP
+@guvectorize(['void(uint8[:,:],float64[:],float64[:],uint8[:,:])',
+              'void(uint16[:,:],float64[:],float64[:],uint16[:,:])',
+              'void(uint32[:,:],float64[:],float64[:],uint32[:,:])',
+              'void(int16[:,:],float64[:],float64[:],int16[:,:])',
+              'void(int32[:,:],float64[:],float64[:],int32[:,:])',
+              'void(float32[:,:],float64[:],float64[:],float32[:,:])',
+              'void(float64[:,:],float64[:],float64[:],float64[:,:])'],
+             '(a,b),(c),(d),(m,n)', target='parallel',
+             nopython=True)
+def max_guvec(arr, x_steps, y_steps, out):
+    """TBD"""
+    for x in xrange(out.shape[0]):
+        for y in xrange(out.shape[1]):
+            out[x, y] = max_pixel(arr,x_steps[x:x + 2],y_steps[y:y + 2])
+
+
+# The types handled are the same in contstants.py DICT_GDAL_TO_NP
+@guvectorize(['void(uint8[:,:],float64[:],float64[:],uint8[:,:])',
+              'void(uint16[:,:],float64[:],float64[:],uint16[:,:])',
+              'void(uint32[:,:],float64[:],float64[:],uint32[:,:])',
+              'void(int16[:,:],float64[:],float64[:],int16[:,:])',
+              'void(int32[:,:],float64[:],float64[:],int32[:,:])',
+              'void(float32[:,:],float64[:],float64[:],float32[:,:])',
+              'void(float64[:,:],float64[:],float64[:],float64[:,:])'],
+             '(a,b),(c),(d),(m,n)', target='parallel',
+             nopython=True)
+def min_guvec(arr, x_steps, y_steps, out):
+    """TBD"""
+    for x in xrange(out.shape[0]):
+        for y in xrange(out.shape[1]):
+            out[x, y] = min_pixel(arr,x_steps[x:x + 2],y_steps[y:y + 2])
 
 
 
