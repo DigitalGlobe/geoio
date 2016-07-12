@@ -160,12 +160,16 @@ def downsample_to_grid(arr,x_steps,y_steps,no_data_value=None,
 
     global use_cv2
     global use_numba
-    if source=='cv2':
+    if source is None:
+        pass
+    elif source=='cv2':
         use_cv2 = True
         use_numba = False
     elif source=='numba':
         use_cv2 = False
         use_numba = True
+    else:
+        raise ValueError('Invalid source provided.')
 
     if no_data_value:
         arr = np.where(arr == no_data_value, 0, arr)
@@ -185,6 +189,8 @@ def downsample_to_grid(arr,x_steps,y_steps,no_data_value=None,
                          'opencv::resize')
             type_cv_code = cv2.INTER_NEAREST
             out = run_opencv_resize(arr,x_steps,y_steps,type_cv_code)
+        else:
+            raise ValueError('Specified method is not available')
     elif use_numba:
         # If cv2 isn't available or the requested steps are from a grid
         # that doens't nicely overlap this image, use custom implementations
@@ -202,6 +208,8 @@ def downsample_to_grid(arr,x_steps,y_steps,no_data_value=None,
         elif method == 'min':
             logger.debug('running min with custom numba function.')
             out = run_numba_min(arr, x_steps, y_steps)
+        else:
+            raise ValueError('Specified method is not available')
     else:
         raise ValueError('No downsampling routine available for the '
                          'requested parameters.  Either opencv or numba are '
@@ -212,7 +220,7 @@ def downsample_to_grid(arr,x_steps,y_steps,no_data_value=None,
                          'function.  You can always just use get_data() '
                          'and use an external resampling routine!')
 
-    if no_data_value:
+    if no_data_value is not None:
         return np.where(out == 0, no_data_value, out)
     else:
         return out

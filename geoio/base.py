@@ -25,7 +25,6 @@ import tinytools as tt
 
 # package import
 import constants as const
-import downsample
 
 # Module setup
 gdal.UseExceptions()
@@ -1243,6 +1242,11 @@ class GeoImage(object):
         detailed documentation, see geoio.downsample.downsample.
         """
 
+        # importing downsample trigger numba compile - which slows down the
+        # whole package import if it is done at import.  So, only pull in
+        # and compile when the code is necessary.
+        import downsample
+
         if arr is None:
             logger.debug('Array not passed in, retrieving all bands...')
             arr = self.get_data()
@@ -1259,7 +1263,13 @@ class GeoImage(object):
         """Pull downsampling parameters from another geoio image object and
         use them to run downsampling.  Currently assumes that they are in the
         same projection.  kwargs can be the method, no_data_value, or source
-        arguments that will be passed to geoio.downsample.downsample."""
+        arguments that will be passed to geoio.downsample.downsample.
+        """
+
+        # importing downsample trigger numba compile - which slows down the
+        # whole package import if it is done at import.  So, only pull in
+        # and compile when the code is necessary.
+        import downsample
 
         ####
         # Eventually add code to check and unify projection
@@ -1293,11 +1303,21 @@ class GeoImage(object):
                                          shape=ext_shape,
                                          **kwargs)
 
-    def downsample_to_grid(self,x_steps,y_steps,no_data_value=None,
+    def downsample_to_grid(self,arr,x_steps,y_steps,no_data_value=None,
                                         method='aggregate',source=None):
         """Direct call to grid downsample for geoio.downsample."""
 
-        return downsample.downsample_to_grid(x_steps,
+        # importing downsample trigger numba compile - which slows down the
+        # whole package import if it is done at import.  So, only pull in
+        # and compile when the code is necessary.
+        import downsample
+
+        if arr is None:
+            logger.debug('Array not passed in, retrieving all bands...')
+            arr = self.get_data()
+
+        return downsample.downsample_to_grid(arr,
+                                             x_steps,
                                              y_steps,
                                              no_data_value=no_data_value,
                                              method=method,

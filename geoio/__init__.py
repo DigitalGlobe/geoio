@@ -7,7 +7,7 @@ from base import GeoImage
 from dg import DGImage
 import constants
 import utils
-import downsample
+#import downsample  # numba compile is trigger at import and it necessarily slow
 
 _logger = _logging.getLogger(__name__)
 
