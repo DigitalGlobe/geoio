@@ -1439,6 +1439,10 @@ class GeoImage(object):
         # Call the stretch_values function in this module.
         return get_img_stretch_vals(self._fobj,**kwargs)
 
+    def get_gdal_obj(self):
+        """Return gdal object hidden under geoio object."""
+        return self._fobj
+
 
 def read_geo_file_info(fname_or_fobj):
     """ Get image metadata."""
