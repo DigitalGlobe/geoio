@@ -367,9 +367,11 @@ class DGImage(GeoImage):
                        bands = None,
                        window = None,
                        buffer = None,
-                       geom=None,
+                       geom = None,
                        mask = False,
-                       mask_all_touched=False,
+                       mask_all_touched = False,
+                       return_location = False,
+                       boundless = True,
                        virtual = False,
                        stype = None):
         """Get image data with ability to output a data frame or request
@@ -408,9 +410,11 @@ class DGImage(GeoImage):
                                            bands = band_nums,
                                            window = window,
                                            buffer = buffer,
-                                           geom=geom,
+                                           geom = geom,
                                            mask = mask,
-                                           mask_all_touched=mask_all_touched,
+                                           mask_all_touched = mask_all_touched,
+                                           return_location = return_location,
+                                           boundless = boundless,
                                            virtual = virtual)
 
         return data
