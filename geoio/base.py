@@ -196,10 +196,9 @@ class GeoImage(object):
             file_temp = tempfile.NamedTemporaryFile(suffix=".VRT")
 
             # Build the vrt
-            # If there is only one tif file, use separate to relax the
-            # georeferenced file constraint so that this code can be used
-            # for 1b files...
-            # https://trac.osgeo.org/gdal/ticket/3432
+            # If there is only one tile, use gdal_translate to ease the
+            # support of 1b files since gdalbuildvrt doesn't support non-
+            # projected files.
             if len(dfile_tiles) == 1:
                 cmd = []
                 cmd.append("gdal_translate")
