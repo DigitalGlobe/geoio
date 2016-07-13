@@ -1191,7 +1191,8 @@ class GeoImage(object):
 
         if return_location:
             location_dict = {}
-            location_dict['upper_left_pixel'] = [xoff, yoff]
+            location_dict['upper_left_pixel'] = [xoff+np_xoff_buff,
+                                                 yoff+np_yoff_buff]
             return data, location_dict
         else:
             return data
