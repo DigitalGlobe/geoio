@@ -1176,7 +1176,7 @@ class GeoImage(object):
         pad_tuples = ((0,0),
                       (np.abs(np_yoff_buff), np.abs(np_ylim_buff)),
                       (np.abs(np_xoff_buff), np.abs(np_xlim_buff)))
-        if not mask:
+        if not mask and np.any([np.any(x) for x in pad_tuples]):
             data = np.pad(data, pad_tuples, 'constant',constant_values=0)
         elif mask:
             mpad = np.pad(data.mask, pad_tuples, 'constant', constant_values=1)
