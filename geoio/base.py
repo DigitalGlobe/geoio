@@ -195,11 +195,23 @@ class GeoImage(object):
             # Get a temporary file
             file_temp = tempfile.NamedTemporaryFile(suffix=".VRT")
 
-            # Build the vrt command
-            cmd = []
-            cmd.append("gdalbuildvrt")
-            cmd.append(file_temp.name)
-            for i in dfile_tiles: cmd.append(i)
+            # Build the vrt
+            # If there is only one tif file, use separate to relax the
+            # georeferenced file constraint so that this code can be used
+            # for 1b files...
+            # https://trac.osgeo.org/gdal/ticket/3432
+            if len(dfile_tiles) == 1:
+                cmd = []
+                cmd.append("gdal_translate")
+                cmd.append("-of")
+                cmd.append("VRT")
+                cmd.append(dfile_tiles[0])
+                cmd.append(file_temp.name)
+            else:
+                cmd = []
+                cmd.append("gdalbuildvrt")
+                cmd.append(file_temp.name)
+                for i in dfile_tiles: cmd.append(i)
 
             # Execute the buildvrt command and print the output via logging.
             dump = tt.cmd_line.exec_cmd(cmd,ret_output=True)
@@ -277,7 +289,10 @@ class GeoImage(object):
         prefixes['Extent'] = (['extent'],' (ul_x, ul_y, lr_x, lr_y)')
         prefixes['Projection String'] = (['pprint_proj_string'],'')
         prefixes['Geo Transform'] = (['geo_transform'],'')
-        prefixes['Authority'] = (['authority'], '')
+        if 'authority' in su:
+            prefixes['Authority'] = (['authority'], '')
+        if 'band_centers' in su:
+            prefixes['Band Centers (nm)'] = (['band_centers'],'')
 
         ### Loop through prefixes and su to print data to screen
         # Gen max length of labels to set prefix length
@@ -1495,12 +1510,16 @@ def read_geo_file_info(fname_or_fobj):
     summary['extent'] = (xstart, ystart, xend, yend)
 
     ### Get image projection and datum
-    summary['projection_string'] = fobj.GetProjection()
-    # Get pretty printable projection_string
-    sr = osr.SpatialReference(fobj.GetProjectionRef())
-    summary['pprint_proj_string'] = sr.ExportToPrettyWkt()
-    summary['authority'] = sr.GetAttrValue("AUTHORITY",0)+ ':' + \
-                           sr.GetAttrValue("AUTHORITY",1)
+    try:
+        summary['projection_string'] = fobj.GetProjection()
+        # Get pretty printable projection_string
+        sr = osr.SpatialReference(fobj.GetProjectionRef())
+        summary['pprint_proj_string'] = sr.ExportToPrettyWkt()
+        summary['authority'] = sr.GetAttrValue("AUTHORITY",0)+ ':' + \
+                               sr.GetAttrValue("AUTHORITY",1)
+    except:
+        # Used to handle 1b files without projections
+        pass
 
     return summary
 
