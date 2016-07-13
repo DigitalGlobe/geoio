@@ -213,6 +213,9 @@ class DGImage(GeoImage):
         #ToDo - move reported point to the center of the image
         self.meta.latlonhae = (lat[0], lon[0], hae[0])
 
+        # Product level to meta structure
+        self.meta.product_level = self.meta_dg.IMD.PRODUCTLEVEL
+
         # Date/time of collection from EarliestAcqTime
         # Don't use "map_projected_product" time for this to work on 1b files
         # dtstr = self.meta_dg.IMD.MAP_PROJECTED_PRODUCT.EARLIESTACQTIME

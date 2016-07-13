@@ -276,6 +276,8 @@ class GeoImage(object):
         prefixes = collections.OrderedDict()
         prefixes['Class Name'] = (['class_name'],'')
         prefixes['Driver Name'] = (['driver_name'],'')
+        if 'product_level' in su:
+            prefixes['Product Level'] = (['product_level'],'')
         prefixes['Data Type'] = (['gdal_dtype_name'],'')
         prefixes['File Name'] = (['file_name'],'')
         prefixes['File List'] = (['file_list'], '')
