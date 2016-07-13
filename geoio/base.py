@@ -1190,9 +1190,20 @@ class GeoImage(object):
             pass
 
         if return_location:
+            # Find upper-left pixel location including buffers is necessary.
+            ul_pix_x = xoff+np_xoff_buff
+            ul_pix_y = yoff+np_yoff_buff
+
+            # Create new geotransform tuple.
+            gt = self.meta.geo_transform
+            (lx,ly) = self.raster_to_proj(ul_pix_x,ul_pix_y)
+            gt_new = (lx, gt[1], gt[2], ly, gt[4], gt[5])
+
+            # Set the dictionary to be returned below
             location_dict = {}
-            location_dict['upper_left_pixel'] = [xoff+np_xoff_buff,
-                                                 yoff+np_yoff_buff]
+            location_dict['upper_left_pixel'] = [ul_pix_x,ul_pix_y]
+            location_dict['geo_transform'] = gt_new
+
             return data, location_dict
         else:
             return data
