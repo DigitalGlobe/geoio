@@ -1113,7 +1113,8 @@ class GeoImage(object):
                                                  win_xsize=win_xsize,
                                                  win_ysize=win_ysize)
         elif virtual:
-            data = obj.GetVirtualMemArray(xoff=xoff,
+            data = obj.GetVirtualMemArray(gdalconst.GF_Write,
+                                          xoff=xoff,
                                           yoff=yoff,
                                           xsize=win_xsize,
                                           ysize=win_ysize,
@@ -1358,7 +1359,7 @@ class GeoImage(object):
         downsampling code should be used."""
         raise NotImplementedError
 
-    def just_resmaple_it(self):
+    def just_resample_it(self):
         """Method to choose resonable default for up or downsample size.
         """
         raise NotImplementedError
