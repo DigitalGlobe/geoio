@@ -274,12 +274,12 @@ class TestDGImage(unittest.TestCase):
 
     def test_DGImage_get_data_as_at_sensor_rad_dtype(self):
         """Output for at sensor radiance should be a numpy array of float32."""
-        a = self.img.get_data_as_at_sensor_rad()
+        a = self.img.get_data(stype='radiance')
         self.assertEqual(a.dtype,np.dtype('float32'))
 
     def test_DGImage_get_data_as_toa_ref_dtype(self):
         """Output for toa reflectance should be a numpy array of int16 data."""
-        a = self.img.get_data_as_toa_ref()
+        a = self.img.get_data(stype='toa')
         self.assertEqual(a.dtype,np.dtype('int16'))
 
     # def test_DGImage_get_data_as_at_sensor_rad_old(self):
@@ -299,7 +299,7 @@ class TestDGImage(unittest.TestCase):
         Gain provided by abscal from const
         Offset provided by abscal from const
         """
-        a = self.img.get_data_as_at_sensor_rad()
+        a = self.img.get_data(stype='radiance')
         b = self.img.get_data()
         #b = self.geoimg.get_data()
 
@@ -338,7 +338,7 @@ class TestDGImage(unittest.TestCase):
     #     self.assertIsNone(np.testing.assert_array_almost_equal(a,b,decimal=6))
 
     def test_DGImage_get_data_as_toa_ref(self):
-        a = self.img.get_data_as_toa_ref()
+        a = self.img.get_data(stype='toa')
         b = self.img.get_data()
         #b = self.geoimg.get_data()
 

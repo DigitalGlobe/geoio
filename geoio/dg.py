@@ -381,12 +381,6 @@ class DGImage(GeoImage):
         band aliases defined in const before passing a converted list of
         ints to super."""
 
-        # Set spectral retrival if requested
-        if stype:
-            raise NotImplementedError("stype handling in get_data is not " \
-                                      "implemented yet.  Please use the " \
-                                      "dedicated methods.")
-
         # Set satelite index to query const dictionaries
         # Set initial band names that might be updated below
         sat_index = self.meta.satid.upper() + "_" + \
@@ -417,14 +411,32 @@ class DGImage(GeoImage):
                                            boundless = boundless,
                                            virtual = virtual)
 
+        if not stype:
+            pass
+        elif stype == 'dn':
+            pass
+        elif stype == 'radiance':
+            data = self._calc_radiance(data,band_nums)
+        elif stype == 'toa':
+            data = self._calc_toa(data,band_nums)
+
         return data
 
-    def get_data_as_at_sensor_rad(self,component=None):
-        """Read data from sensor as at sensor radiance.  The returned values
+    def _calc_radiance(self,data,band_nums):
+        """Convert data to at sensor radiance.  The returned values
         are in W/(m^2*sr*nm).  The values are calculated with known
         gain/offset values pull from the geoio.constants file as provided by
         the DigitalGlobe calibration team.  The absolute calibration factor
         and effective bandwidths are pull from the IMD files for each image."""
+
+        if not band_nums:
+            band_nums = range(data.shape[0])
+        else:
+            band_nums = [x-1 for x in band_nums]
+            if len(band_nums) != data.shape[0]:
+                raise ValueError('If band_nums is specified, it needs to have '
+                                 'the same length as the first dimension of '
+                                 'the three dimension data numpy array.')
 
         # Set satellite index to look up cal factors
         sat_index = self.meta.satid.upper() + "_" + \
@@ -441,27 +453,24 @@ class DGImage(GeoImage):
         # Gain provided by abscal from const
         # Offset provided by abscal from const
         num = np.asarray(self.meta.abscalfactor) # Should be nbands length
+        num = num[band_nums]
         den = np.asarray(self.meta.effbandwidth)  # Should be nbands length
+        den = den[band_nums]
         gain = np.asarray(const.DG_ABSCAL_GAIN[sat_index])
+        gain = gain[band_nums]
         scale = (num/den)*(gain)
 
         # Shape for easy multiple
         scale = scale[:, np.newaxis, np.newaxis]
         offset = np.asarray(const.DG_ABSCAL_OFFSET[sat_index])
-        offset = offset[:, np.newaxis, np.newaxis]
-
-        # Pull raw data
-        if component is not None:
-            data = self.get_data(component=component)
-        else:
-            data = self.get_data()
+        offset = offset[band_nums, np.newaxis, np.newaxis]
 
         # Return scaled data
         out = (data*scale.astype('float32'))+offset.astype('float32')
 
         return out
 
-    def get_data_as_toa_ref(self,component=None):
+    def _calc_toa(self,data,band_nums):
         """Get data in a numpy array as top-of-atmosphere reflectance.
         Output is in scaled reflectance 0-10,000.
         Input:  data (numpy array in bands,lines,samples)
@@ -474,6 +483,15 @@ class DGImage(GeoImage):
         Output: image data in TOA reflectance
         """
 
+        if not band_nums:
+            band_nums = range(data.shape[0])
+        else:
+            band_nums = [x-1 for x in band_nums]
+            if len(band_nums) != data.shape[0]:
+                raise ValueError('If band_nums is specified, it needs to have '
+                                 'the same length as the first dimension of '
+                                 'the three dimension data numpy array.')
+
         # Set satellite index to look up cal factors
         sat_index = self.meta.satid.upper() + "_" + \
                     self.meta.bandid.upper()
@@ -489,19 +507,23 @@ class DGImage(GeoImage):
         # Gain provided by abscal from const
         # Offset provided by abscal from const
         num = np.asarray(self.meta.abscalfactor) # Should be nbands length
+        num = num[band_nums]
         den = np.asarray(self.meta.effbandwidth)  # Should be nbands length
+        den = den[band_nums]
         gain = np.asarray(const.DG_ABSCAL_GAIN[sat_index])
+        gain = gain[band_nums]
         scale = (num/den)*(gain)
 
         # Shape for easy multiple
         scale = scale[:, np.newaxis, np.newaxis]
         offset = np.asarray(const.DG_ABSCAL_OFFSET[sat_index])
-        offset = offset[:, np.newaxis, np.newaxis]
+        offset = offset[band_nums, np.newaxis, np.newaxis]
 
         ## Read Esun for the bands of this satellite from the const file
         e_sun_index = self.meta.satid.upper() + "_" + \
                       self.meta.bandid.upper()
-        e_sun = const.DG_ESUN[e_sun_index]
+        e_sun = np.asarray(const.DG_ESUN[e_sun_index])
+        e_sun = e_sun[band_nums]
 
         ## Calculate the generic earth_sun distance
         # For a test image over Longmont, the code below produces:
@@ -530,22 +552,16 @@ class DGImage(GeoImage):
         theta_s = 90-float(self.meta_dg.IMD.IMAGE.MEANSUNEL)
 
         # Set up the solar and geometry parameters
-        d = np.repeat(d_es, self.shape[0]) # earth-sun distance
-        e = np.asarray(e_sun)          # e_sun for each band
-        te = np.repeat(theta_s, self.shape[0])  # sun elevation
+        d = np.repeat(d_es, data.shape[0]) # earth-sun distance
+        # e = np.asarray(e_sun)          # e_sun for each band
+        te = np.repeat(theta_s, data.shape[0])  # sun elevation
 
         # Perform the TOA reflectance calculation
         #scale2 = (d**2*np.pi)/(e*np.sin(np.deg2rad(te)))
-        scale2 = (d ** 2 * np.pi) / (e * np.cos(np.deg2rad(te)))
+        scale2 = (d ** 2 * np.pi) / (e_sun * np.cos(np.deg2rad(te)))
 
         # Shape for easy multiple
         scale2 = scale2[:, np.newaxis, np.newaxis]
-
-        # Pull raw data
-        if component is not None:
-            data = self.get_data(component=component)
-        else:
-            data = self.get_data()
 
         # Set data types for output
         # scale = scale.astype('float32')
@@ -571,7 +587,7 @@ class DGImage(GeoImage):
                 bn = os.path.basename(fl[0])
                 fl[0] = os.path.join(path, bn)
             new_fname = fl[0] + const.DG_SPEC['RAD_IMGS'][0] + fl[1]
-            data = self.get_data_as_at_sensor_rad()
+            data = self.get_data(stype='radiance')
             self.write_img_like_this(new_fname,data)
             # Add to dg_img_rad
             self.dg_img_rad = new_fname
@@ -591,7 +607,7 @@ class DGImage(GeoImage):
                         fl[0] = os.path.join(path, bn)
                     new_fname = fl[0] + const.DG_SPEC['RAD_IMGS'][0] + fl[1]
                     flist_for_vrt.append(new_fname)
-                    data = self.get_data_as_at_sensor_rad(component=yi+1)
+                    data = self.get_data(component=yi+1,stype='radiance')
                     x.write_img_like_this(new_fname,data)
                     x=None
                 # Create the vrt
@@ -626,7 +642,7 @@ class DGImage(GeoImage):
                 bn = os.path.basename(fl[0])
                 fl[0] = os.path.join(path, bn)
             new_fname = fl[0] + const.DG_SPEC['TOA_IMGS'][0] + fl[1]
-            data = self.get_data_as_toa_ref()
+            data = self.get_data(stype='toa')
             self.write_img_like_this(new_fname,data)
             # Add to dg_img_rad
             self.dg_img_rad = new_fname
@@ -646,7 +662,7 @@ class DGImage(GeoImage):
                         fl[0] = os.path.join(path, bn)
                     new_fname = fl[0] + const.DG_SPEC['TOA_IMGS'][0] + fl[1]
                     flist_for_vrt.append(new_fname)
-                    data = self.get_data_as_toa_ref(component=yi+1)
+                    data = self.get_data(component=yi+1,stype='toa')
                     x.write_img_like_this(new_fname,data)
                     x=None
                 # Create the vrt
