@@ -797,11 +797,10 @@ class DGImage(GeoImage):
         """
 
         # Empty line for readability
-        logger.info('')
         if test_only:
-            logger.info("*** NO RADIANCE FILE OPERATIONS WILL BE PERFORMED ***")
-            logger.info("*** test_only is set to True (default) ***")
-            logger.info("")
+            logger.warning("*** NO RADIANCE FILE OPERATIONS WILL BE PERFORMED ***")
+            logger.warning("*** test_only is set to True (default) ***")
+            logger.warning("")
 
         # Find spectral files
         if self.files.rad in self.files.rad_tiles:
@@ -834,11 +833,10 @@ class DGImage(GeoImage):
         """
 
         # Empty line for readability
-        logger.info('')
         if test_only:
-            logger.info("*** NO TOA REFLECTANCE FILE OPERATIONS WILL BE PERFORMED ***")
-            logger.info("*** test_only is set to True (default) ***")
-            logger.info("")
+            logger.warning("*** NO TOA REFLECTANCE FILE OPERATIONS WILL BE PERFORMED ***")
+            logger.warning("*** test_only is set to True (default) ***")
+            logger.warning("")
 
         # Find spectral files
         if self.files.toa in self.files.toa_tiles:
@@ -871,11 +869,10 @@ class DGImage(GeoImage):
         """
 
         # Empty line for readability
-        logger.info('')
         if test_only:
-            logger.info("*** NO DGACOMP FILE OPERATIONS WILL BE PERFORMED ***")
-            logger.info("*** test_only is set to True (default) ***")
-            logger.info("")
+            logger.warning("*** NO DGACOMP FILE OPERATIONS WILL BE PERFORMED ***")
+            logger.warning("*** test_only is set to True (default) ***")
+            logger.warning("")
 
         # Find spectral files
         dall = []
