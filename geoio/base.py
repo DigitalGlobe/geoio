@@ -1363,12 +1363,17 @@ class GeoImage(object):
         should be at or above the resolution of the input data.  Otherwise,
         the downsampling code should be used.  Alternatively, the resample
         method can be used to automatically choose reasonable defaults."""
-        pass
+
 
     def upsample_like_that(self, ext_img, method = None, no_data_value = None):
         """Use gdal.ReprojectImage to upsample the object so that it looks
         like the geoio image object passed in as the ext_img argument.
         """
+
+        if ext_img.meta.resolution[0]>self.meta.resolution[0]:
+            raise ValueError('The requested resolution is not at or higher '
+                             'than the base object.  Use downsample or '
+                             'resample methods.')
 
         # Set reprojection method
         if method is None:
