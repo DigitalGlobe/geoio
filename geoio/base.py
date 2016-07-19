@@ -1352,17 +1352,81 @@ class GeoImage(object):
                                              method=method,
                                              source=source)
 
-
-    def resample(self):
-        """Method to call resample operations.  The output of this operation
+    def upsample(self, arr=None,
+                       shape=None,
+                       factor=None,
+                       extent=None,
+                       method='aggregate',
+                       no_data_value=None,
+                       source=None):
+        """Method to call gdal upsample operations.  The output of this
         should be at or above the resolution of the input data.  Otherwise,
-        downsampling code should be used."""
-        raise NotImplementedError
+        the downsampling code should be used.  Alternatively, the resample
+        method can be used to automatically choose reasonable defaults."""
+        pass
 
-    def just_resample_it(self):
+    def upsample_like_that(self, ext_img, method = None, no_data_value = None):
+        """Use gdal.ReprojectImage to upsample the object so that it looks
+        like the geoio image object passed in as the ext_img argument.
+        """
+
+        # Set reprojection method
+        if method is None:
+            method = gdal.GRA_Bilinear
+        elif isinstance(method,int):
+            pass
+        elif method == "nearest":
+            method = gdal.GRA_NearestNeighbour
+        elif method == "bilinear":
+            method = gdal.GRA_Bilinear
+        elif method == "cubic":
+            method = gdal.GRA_Cubic
+        elif method == "average":
+            method = gdal.GRA_Average
+        else:
+            raise ValueError("requested method is not understood.")
+
+        # Set up destination image in memory
+        drv = gdal.GetDriverByName('MEM')
+        dst = drv.Create('',
+                         ext_img.shape[2],
+                         ext_img.shape[1],
+                         ext_img.shape[0],
+                         ext_img.meta.gdal_dtype)
+        dst.SetGeoTransform(ext_img.meta.geo_transform)
+        dst.SetProjection(ext_img.meta.projection_string)
+        if no_data_value is not None:
+            blist = [x+1 for x in range(ext_img.shape[0])]
+            [dst.GetRasterBand(x).SetNoDataValue(no_data_value) for x in blist]
+
+        # Go the reprojection
+        gdal.ReprojectImage(self.get_gdal_obj(),
+                            dst,
+                            self.meta.projection_string,
+                            ext_img.meta.projection_string,
+                            method)
+
+        # print(dst.GetRasterBand(1).GetNoDataValue())
+
+        # Return data and free the temp image.
+        data = dst.ReadAsArray()
+        del dst
+
+        return data
+
+
+    def resample_like_that(self,ext_img):
         """Method to choose resonable default for up or downsample size.
         """
-        raise NotImplementedError
+        if (ext_img.meta.resolution[0]<self.meta.resolution[0]) and \
+                (ext_img.meta.resolution[1]<self.meta.resolution[1]):
+            return self.upsample_like_that(ext_img)
+        elif (ext_img.meta.resolution[0]>self.meta.resolution[0]) and \
+                (ext_img.meta.resolution[1]>self.meta.resolution[1]):
+            return self.downsample_like_that(ext_img)
+        else:
+            raise ValueError('Mixed resampling between the x and y '
+                             'dimensions is not supported.')
 
     def write_img_like_this(self,new_fname,np_array,return_obj=False,
                             gdal_driver_name=None,options=[],
