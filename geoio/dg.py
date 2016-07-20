@@ -400,7 +400,7 @@ class DGImage(GeoImage):
                              "alias.")
 
         # Call super with keywords passed in and/or convereted above
-        data = super(self.__class__,self).get_data(component = component,
+        out = super(self.__class__,self).get_data(component = component,
                                            bands = band_nums,
                                            window = window,
                                            buffer = buffer,
@@ -411,16 +411,24 @@ class DGImage(GeoImage):
                                            boundless = boundless,
                                            virtual = virtual)
 
+        if return_location:
+            pass
+        else:
+            out = [out,None]
+
         if not stype:
             pass
         elif stype == 'dn':
             pass
         elif stype == 'radiance':
-            data = self._calc_radiance(data,band_nums)
+            out[0] = self._calc_radiance(out[0],band_nums)
         elif stype == 'toa':
-            data = self._calc_toa(data,band_nums)
+            out[0] = self._calc_toa(out[0],band_nums)
 
-        return data
+        if return_location:
+            return out
+        else:
+            return out[0]
 
     def _calc_radiance(self,data,band_nums):
         """Convert data to at sensor radiance.  The returned values
