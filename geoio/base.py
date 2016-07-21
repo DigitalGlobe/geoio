@@ -714,7 +714,7 @@ class GeoImage(object):
         -------
         list
             list that defines a pixel window of the form
-            [xoff, yoff, win_xsize, wind_ysize].
+            [xoff, yoff, win_xsize, win_ysize].
 
         """
 
@@ -1352,20 +1352,61 @@ class GeoImage(object):
                                              method=method,
                                              source=source)
 
-    def upsample(self, arr=None,
-                       shape=None,
-                       factor=None,
-                       extent=None,
-                       method='aggregate',
-                       no_data_value=None,
-                       source=None):
-        """Method to call gdal upsample operations.  The output of this
-        should be at or above the resolution of the input data.  Otherwise,
-        the downsampling code should be used.  Alternatively, the resample
-        method can be used to automatically choose reasonable defaults."""
+    # def upsample(self, arr=None,
+    #                    shape=None,
+    #                    factor=None,
+    #                    extent=None,
+    #                    method=None,
+    #                    no_data_value=None):
+    #     """Method to call gdal upsample operations.  The output of this
+    #     should be at or above the resolution of the input data.  Otherwise,
+    #     the downsampling code should be used.  Alternatively, the resample
+    #     method can be used to automatically choose reasonable defaults."""
+    #
+    #     if factor is not None and factor<1:
+    #         raise ValueError('factor should be equal to or greater than one '
+    #                          'for resampling/upsampling operations.')
+    #
+    #     if factor:
+    #         if isinstance(factor,(int,float)):
+    #             factor = [factor,factor]
+    #         shape = [self.resolution[0]*factor[0],self.resolution[1]*factor[1]]
+    #     elif shape:
+    #         pass
+    #
+    #     import ipdb; ipdb.set_trace()
+    #
+    #     if extent is not None:
+    #         # ul_x, ul_y, lr_x, lr_y
+    #         (487546.8, 1.2, 0.0, 4443553.199999999, 0.0, -1.2)
+    #         gt = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #         ul_projx, ul_projy = self.raster_to_proj(extent[0],extent[1])
+    #         lr_projx, lr_projy = self.raster_to_proj(extent[2],extent[3])
+    #         gt[0] = ul_projx
+    #         gt[3] = ul_projy
+    #         gt[1] = (ul_projx-lr_projx)/shape[0]
+    #         gt[5] = (ul_projy-lr_projy)/shape[1]
+    #
+    #         # Set up destination image in memory
+    #     drv = gdal.GetDriverByName('MEM')
+    #     dst = drv.Create('',
+    #                      shape[1],
+    #                      shape[0],
+    #                      self.shape[0],
+    #                      self.meta.gdal_dtype)
+    #
+    #
+    #
+    #     dst.SetGeoTransform(ext_img.meta.geo_transform)
+    #     dst.SetProjection(ext_img.meta.projection_string)
+    #     if no_data_value is not None:
+    #         blist = [x + 1 for x in range(ext_img.shape[0])]
+    #         [dst.GetRasterBand(x).SetNoDataValue(no_data_value) for x in blist]
 
 
-    def upsample_like_that(self, ext_img, method = None, no_data_value = None):
+
+
+    def upsample_like_that(self, ext_img, method='bilinear', no_data_value=None):
         """Use gdal.ReprojectImage to upsample the object so that it looks
         like the geoio image object passed in as the ext_img argument.
         """
@@ -1375,10 +1416,31 @@ class GeoImage(object):
                              'than the base object.  Use downsample or '
                              'resample methods.')
 
+        # Set up destination image in memory
+        drv = gdal.GetDriverByName('MEM')
+        dst = drv.Create('',
+                         ext_img.shape[2],
+                         ext_img.shape[1],
+                         ext_img.shape[0],
+                         ext_img.meta.gdal_dtype)
+        dst.SetGeoTransform(ext_img.meta.geo_transform)
+        dst.SetProjection(ext_img.meta.projection_string)
+        if no_data_value is not None:
+            blist = [x + 1 for x in range(ext_img.shape[0])]
+            [dst.GetRasterBand(x).SetNoDataValue(no_data_value) for x in blist]
+
+        # Run resample, pull data, and del the temp gdal object.
+        data = self._upsample_from_gdalobj(self.get_gdal_obj(),dst,method)
+        del dst
+
+        return data
+
+    def _upsample_from_gdalobj(self,src,dst,method='bilinear'):
+        """Hidden to run the actual reprojection gdal code that is called
+        from two higher level methods."""
+
         # Set reprojection method
-        if method is None:
-            method = gdal.GRA_Bilinear
-        elif isinstance(method,int):
+        if isinstance(method,int):
             pass
         elif method == "nearest":
             method = gdal.GRA_NearestNeighbour
@@ -1391,33 +1453,15 @@ class GeoImage(object):
         else:
             raise ValueError("requested method is not understood.")
 
-        # Set up destination image in memory
-        drv = gdal.GetDriverByName('MEM')
-        dst = drv.Create('',
-                         ext_img.shape[2],
-                         ext_img.shape[1],
-                         ext_img.shape[0],
-                         ext_img.meta.gdal_dtype)
-        dst.SetGeoTransform(ext_img.meta.geo_transform)
-        dst.SetProjection(ext_img.meta.projection_string)
-        if no_data_value is not None:
-            blist = [x+1 for x in range(ext_img.shape[0])]
-            [dst.GetRasterBand(x).SetNoDataValue(no_data_value) for x in blist]
-
-        # Go the reprojection
-        gdal.ReprojectImage(self.get_gdal_obj(),
+        # Do the reprojection
+        gdal.ReprojectImage(src,
                             dst,
                             self.meta.projection_string,
-                            ext_img.meta.projection_string,
+                            dst.GetProjection(),
                             method)
 
-        # print(dst.GetRasterBand(1).GetNoDataValue())
-
         # Return data and free the temp image.
-        data = dst.ReadAsArray()
-        del dst
-
-        return data
+        return dst.ReadAsArray()
 
 
     def resample_like_that(self,ext_img):
