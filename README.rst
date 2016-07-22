@@ -126,7 +126,10 @@ Using the DGImage object:
 
     # Get image data and convert to TOA reflectance
     data = img.get_data(stype='toa')
-    
+
+Plotting 
+========
+
 Plotting with the ``geoio.plotting`` functions:
 
 .. code:: python
@@ -147,4 +150,30 @@ Plotting with the ``geoio.plotting`` functions:
     
     # Plotting a histogram of specific bands
     geoio.plotting.hist(img.get_data(bands='VIS'))
+    
+Spatial Resampling
+==================
+
+The geoio module has upsampling and downsmapling code that allows the user
+to easily resample two images to the same grid for easy multi-image proceesing.
+
+.. code:: python
+
+    import dgsamples
+    
+    # Import wv3 images
+    ms = geoio.DGImage(dgsamples.wv3_longmont_1k.ms)
+    swir = geoio.DGImage(dgsamples.wv3_longmont_1k.swir)
+    
+    # Upsample the swir image
+    swir.upsample_like_that(ms,method='nearest')  # default method is bilinear
+    
+    # Downsample the ms image
+    ms.downsample_like_that(swir)  # default method is aggregation
+    
+    # Or let geoio figure it out
+    ms.resample_like_that(swir)
+    swir.resample_like_that(ms)
+                                                  
+    
     
