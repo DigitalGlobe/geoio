@@ -1352,58 +1352,70 @@ class GeoImage(object):
                                              method=method,
                                              source=source)
 
-    # def upsample(self, arr=None,
-    #                    shape=None,
-    #                    factor=None,
-    #                    extent=None,
-    #                    method=None,
-    #                    no_data_value=None):
-    #     """Method to call gdal upsample operations.  The output of this
-    #     should be at or above the resolution of the input data.  Otherwise,
-    #     the downsampling code should be used.  Alternatively, the resample
-    #     method can be used to automatically choose reasonable defaults."""
-    #
-    #     if factor is not None and factor<1:
-    #         raise ValueError('factor should be equal to or greater than one '
-    #                          'for resampling/upsampling operations.')
-    #
-    #     if factor:
-    #         if isinstance(factor,(int,float)):
-    #             factor = [factor,factor]
-    #         shape = [self.resolution[0]*factor[0],self.resolution[1]*factor[1]]
-    #     elif shape:
-    #         pass
-    #
-    #     import ipdb; ipdb.set_trace()
-    #
-    #     if extent is not None:
-    #         # ul_x, ul_y, lr_x, lr_y
-    #         (487546.8, 1.2, 0.0, 4443553.199999999, 0.0, -1.2)
-    #         gt = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    #         ul_projx, ul_projy = self.raster_to_proj(extent[0],extent[1])
-    #         lr_projx, lr_projy = self.raster_to_proj(extent[2],extent[3])
-    #         gt[0] = ul_projx
-    #         gt[3] = ul_projy
-    #         gt[1] = (ul_projx-lr_projx)/shape[0]
-    #         gt[5] = (ul_projy-lr_projy)/shape[1]
-    #
-    #         # Set up destination image in memory
-    #     drv = gdal.GetDriverByName('MEM')
-    #     dst = drv.Create('',
-    #                      shape[1],
-    #                      shape[0],
-    #                      self.shape[0],
-    #                      self.meta.gdal_dtype)
-    #
-    #
-    #
-    #     dst.SetGeoTransform(ext_img.meta.geo_transform)
-    #     dst.SetProjection(ext_img.meta.projection_string)
-    #     if no_data_value is not None:
-    #         blist = [x + 1 for x in range(ext_img.shape[0])]
-    #         [dst.GetRasterBand(x).SetNoDataValue(no_data_value) for x in blist]
+    def upsample(self, arr=None,
+                       shape=None,
+                       factor=None,
+                       extent=None,
+                       method='bilinear',
+                       no_data_value=None):
+        """Method to call gdal upsample operations.  The output of this
+        should be at or above the resolution of the input data.  Otherwise,
+        the downsampling code should be used.  Alternatively, the resample
+        method can be used to automatically choose reasonable defaults."""
 
+        if factor is not None and factor<1:
+            raise ValueError('factor should be equal to or greater than one '
+                             'for resampling/upsampling operations.')
 
+        if factor:
+            if isinstance(factor,(int,float)):
+                factor = [factor,factor]
+            shape = [int(math.ceil(self.shape[1]*factor[0])),
+                     int(math.ceil(self.shape[1]*factor[1]))]
+
+        elif shape:
+            pass
+
+        if extent is not None:
+            ul_projx, ul_projy = self.raster_to_proj(extent[0], extent[1])
+            lr_projx, lr_projy = self.raster_to_proj(extent[2], extent[3])
+        else:
+            ul_projx, ul_projy = self.meta.extent[:2]
+            lr_projx, lr_projy = self.meta.extent[2:]
+
+        # extent is:
+        # ul_x, ul_y, lr_x, lr_y
+        # geo_transform is
+        # ul_projx, xres, xangle, ul_proj, yangle, yres
+        # (487546.8, 1.2, 0.0, 4443553.199999999, 0.0, -1.2)
+        gt = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+        gt[0] = ul_projx
+        gt[3] = ul_projy
+        gt[1] = (lr_projx - ul_projx) / shape[1]
+        gt[5] = (lr_projy - ul_projy) / shape[0]
+
+        #import ipdb; ipdb.set_trace()
+
+        # Set up destination image in memory
+        drv = gdal.GetDriverByName('MEM')
+        dst = drv.Create('',
+                         shape[1],
+                         shape[0],
+                         self.shape[0],
+                         self.meta.gdal_dtype)
+
+        dst.SetGeoTransform(gt)
+        dst.SetProjection(self.meta.projection_string)
+        if no_data_value is not None:
+            blist = [x + 1 for x in range(ext_img.shape[0])]
+            [dst.GetRasterBand(x).SetNoDataValue(no_data_value) for x in blist]
+
+        # Run resample, pull data, and del the temp gdal object.
+        data = self._upsample_from_gdalobj(self.get_gdal_obj(), dst, method)
+        del dst
+
+        return data
 
 
     def upsample_like_that(self, ext_img, method='bilinear', no_data_value=None):
