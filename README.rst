@@ -65,16 +65,23 @@ relevant pretty print methods can be triggered.  Meta data information will be
 reutrned regardless of the interpreter, but the readability is currently 
 much better in ipython.
 
+The dgsamples repo is used below.  However, all the operations below can be
+run on local data by replacing the dgsamples call with a string to the image
+location.  From exmaples, instead of typing ```dgsamples.wv2_longmont_1k.ms```,
+a local files at ```/path/to/imgfile.TIF``` can be used.
+
 Using the GeoImage object:
 
 .. code:: python
 
+    import dgsamples
+
     # Instantiate an image object
-    img = geoio.GeoImage('/path/to/imgfile.TIF')
+    img = geoio.GeoImage(dgsamples.bayou_chip.extract_test)  # a TIF file
 
     # Print useful information about the object
     img.files
-    img.meta_geoimg
+    img.meta
 
     # Get numpy array
     data = img.get_data()
@@ -87,15 +94,16 @@ Using the DGImage object:
 
 .. code:: python
 
+    import dgsamples
+
     # Instantiate an image object
-    img = geoio.DGImage('/path/to/dgimgfile.TIL')
+    img = geoio.DGImage(dgsamples.wv2_longmont_1k.ms)    # a TIL file
     # Can also be used directly with a DigitalGlobe TIF file if an XML and/or IMD
     # is available with same name as the TIF file.
 
     # Print useful information about the object
     img.files
-    img.meta_geoimg
-    img.meta_dg_quick
+    img.meta
 
     # Print the full IMD OrderedBunch object
     img.meta_dg.IMD  # tab completeable through the OrderedBunch
@@ -117,14 +125,16 @@ Using the DGImage object:
     data = img.get_data(bands=['C','Y'])
 
     # Get image data and convert to TOA reflectance
-    data = img.get_data_as_toa_ref()
+    data = img.get_data(stype='toa')
     
 Plotting with the ``geoio.plotting`` functions:
 
 .. code:: python
+    
+    import dgsamples
 
     # Instantiate an image object
-    img = geoio.DGImage('/path/to/dgimgfile.TIL')
+    img = geoio.DGImage(dgsamples.wv2_longmont_1k.ms)  # a TIF file
     
     # Plot the RGB image
     geoio.plotting.imshow(img.get_data(bands='RGB'))
