@@ -533,7 +533,20 @@ class GeoImage(object):
     def iter_components(self, **kwargs):
         """This is a convenience method that iterataes (via yield) through
         the components in the image object.  Any kwargs valid for get_data
-        can be passed through."""
+        can be passed through.
+
+        kwargs can be any valid arugment for get_data
+
+        Parameters
+        ----------
+        None
+
+        Yields
+        ------
+        ndarray
+            Three dimensional numpy array of pixel values from the
+            requested region of the image.
+        """
 
         for c in xrange(len(self.files.dfile_tiles)):
             yield self.get_data(component=c, **kwargs)
@@ -1269,6 +1282,33 @@ class GeoImage(object):
         available are 'aggregate' and 'nearest'.  If the data arr is not
         specified, all bands will be retrieved from the image object.  For
         detailed documentation, see geoio.downsample.downsample.
+
+        Parameters
+        ----------
+        arr : array_like
+            Image data in a two or three dimension array in band-first order.
+            If it is not provided, the data will be pulled via get_data from
+            the current image object.
+        shape : list
+            Shape of the desired output array.
+        factor : integer, float, or length two iterable
+            Factor by which to scale the image (must be less than one).
+        extent : length four array-like
+            List of upper-left and lower-right corner coordinates for the edges
+            of the resample.  Coordinates should be expressed in pixel space.
+            i.e. [-1,-2,502,501]
+        method : strings
+            Method to use for the downsample - 'aggregate', 'nearest', 'max', or
+            'min.
+        no_data_value : int
+            Data value to treat as no_data
+        source : strings
+            Package to use for algorithm - opencv ('cv2') or custom 'numba' below.
+
+        Returns
+        -------
+        ndarray
+            Three dimensional numpy array of downsampled data
         """
 
         # importing downsample trigger numba compile - which slows down the
@@ -1291,8 +1331,9 @@ class GeoImage(object):
     def downsample_like_that(self,ext_img,arr = None,**kwargs):
         """Pull downsampling parameters from another geoio image object and
         use them to run downsampling.  Currently assumes that they are in the
-        same projection.  kwargs can be the method, no_data_value, or source
-        arguments that will be passed to geoio.downsample.downsample.
+        same projection.  kwargs can be the downsample method requested,
+        no_data_value, or source arguments that are valide for
+        geoio.downsample.downsample.
         """
 
         # importing downsample trigger numba compile - which slows down the
@@ -1334,7 +1375,35 @@ class GeoImage(object):
 
     def downsample_to_grid(self,arr,x_steps,y_steps,no_data_value=None,
                                         method='aggregate',source=None):
-        """Direct call to grid downsample for geoio.downsample."""
+        """Direct call to grid downsample for geoio.downsample.
+
+        Parameters
+        ----------
+        arr : array_like or None
+            Image data in a two or three dimension array in band-first order.
+            If None is provided, the data will be pulled via get_data from
+            the current image object.
+        x_steps : array_like
+            The x-dim resample edges in image pixel space, can be outside the
+            dimension of the current image.  i.e. [-1.5,0,1.5,3.0]
+        y_steps : array_like
+            The y-dim resampled edges inimage pixel space as x_steps.
+        no_data_value : int or float
+            The no_data_value to be handled in the downsample method
+        method : string
+            Requested downsample method - can be 'aggregate', 'nearest', 'max',
+            or 'min'.  Not all options are available will all x_steps and
+            y_steps requests.
+        source : string
+            What source to pull the downsample algorithm from.  If left blank,
+            the is automatically chosen based on the env and request
+            parameters.  The options are 'numba' or 'cv2'.
+
+        Returns
+        -------
+        ndarray
+            Three dimensional numpy array of downsampled data
+        """
 
         # importing downsample trigger numba compile - which slows down the
         # whole package import if it is done at import.  So, only pull in
@@ -1361,7 +1430,34 @@ class GeoImage(object):
         """Method to call gdal upsample operations.  The output of this
         should be at or above the resolution of the input data.  Otherwise,
         the downsampling code should be used.  Alternatively, the resample
-        method can be used to automatically choose reasonable defaults."""
+        method can be used to automatically choose reasonable defaults.
+
+
+        Parameters
+        ----------
+        arr : array_like
+            Image data in a two or three dimension array in band-first order.
+            If it is not provided, the data will be pulled via get_data from
+            the current image object.
+        shape : list
+            Shape of the desired output array.
+        factor : integer, float, or length two iterable
+            Factor by which to scale the image (must be greater than one).
+        extent : length four array-like
+            List of upper-left and lower-right corner coordinates for the edges
+            of the resample.  Coordinates should be expressed in pixel space.
+            i.e. [-1,-2,502,501]
+        method : strings
+            Method to use for the upsample - 'nearest', 'bilinear', 'cubic',
+            or 'average'.
+        no_data_value : int
+            Data value to treat as no_data
+
+        Returns
+        -------
+        ndarray
+            Three dimensional numpy array of downsampled data
+        """
 
         if factor is not None and factor<1:
             raise ValueError('factor should be equal to or greater than one '
@@ -1420,7 +1516,8 @@ class GeoImage(object):
 
     def upsample_like_that(self, ext_img, method='bilinear', no_data_value=None):
         """Use gdal.ReprojectImage to upsample the object so that it looks
-        like the geoio image object passed in as the ext_img argument.
+        like the geoio image object passed in as the ext_img argument.  Method
+        can be those listed in GeoImage.upsample.
         """
 
         if ext_img.meta.resolution[0]>self.meta.resolution[0]:
@@ -1477,7 +1574,7 @@ class GeoImage(object):
 
 
     def resample_like_that(self,ext_img):
-        """Method to choose resonable default for up or downsample size.
+        """Method to choose resonable default for up or downsample operations.
         """
         if (ext_img.meta.resolution[0]<self.meta.resolution[0]) and \
                 (ext_img.meta.resolution[1]<self.meta.resolution[1]):
