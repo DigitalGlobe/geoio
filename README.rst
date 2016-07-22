@@ -194,5 +194,5 @@ yield based portions of a raster file.
     [x.shape for x in ms.iter_window_random(win_size=[10,10], no_chips=20)]
     
     # iterate through image with evenly spaced windows based on requested stride
-    [x.shape fo rx in ms.iter_window(win_size=[10,10], stride=[100,100])
+    [x.shape for x in ms.iter_window(win_size=[10,10], stride=[100,100])
     
