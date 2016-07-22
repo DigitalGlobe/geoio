@@ -174,6 +174,25 @@ to easily resample two images to the same grid for easy multi-image proceesing.
     # Or let geoio figure it out
     ms.resample_like_that(swir)
     swir.resample_like_that(ms)
-                                                  
+
+Iterators
+=========
+
+The geoio module also provides several iterators to allow easy access to 
+yield based portions of a raster file.
+
+.. code:: python
+
+    import dgsamples
+    ms = geoio.DGImage(dgsamples.wv2_longmont_1k.ms)
     
+    # iterate through vector geometries
+    v = dgsamples.wv2_longmont_1k_vectors.poly_geojson_latlon
+    [x for x in ms.iter_vector(vector=v,bands='RGB',mask=True)]
+    
+    # random windows from the image
+    [x.shape for x in ms.iter_window_random(win_size=[10,10], no_chips=20)]
+    
+    # iterate through image with evenly spaced windows based on requested stride
+    [x.shape fo rx in ms.iter_window(win_size=[10,10], stride=[100,100])
     
