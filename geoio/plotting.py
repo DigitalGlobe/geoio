@@ -22,7 +22,10 @@ def imshow(data,stretch=[0.02,0.98],stretch_type='linear'):
     if len(data.shape) == 2:
         data = np.repeat(data[np.newaxis,:,:],3,axis=0)
 
-    if len(data[:,0,0]) != 3:
+    if data.shape[0] == 1:
+        data = np.repeat(data,3,axis=0)
+
+    if len(data.shape) != 3:
         raise ValueError('This convenience function is only implemented ' \
                          'for three bands.  Use img.get_data(bands=...) to ' \
                          'retrieve specific data.')
@@ -49,7 +52,14 @@ def imshow(data,stretch=[0.02,0.98],stretch_type='linear'):
         data[:,:,x] = (data[:,:,x]-bottom)/float(top-bottom)
     data = np.clip(data,0,1)
 
-    plt.imshow(data,interpolation='nearest');
+    # Definetly not the most memory efficent for a single band image.
+    if data.shape[2] == 3:
+        plt.imshow(data,interpolation='nearest');
+    elif data.shape[2] == 1:
+        plt.imshow(data[:,:,0],interpolation='nearest')
+    else:
+        raise ValueError("No plotting done, bad dimensions")
+
     plt.show(block=False)
 
     # ToDo: fix the handle return for later update and memory issues - see
