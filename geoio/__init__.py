@@ -1,6 +1,5 @@
 import imp as _imp
 import logging as _logging
-import os as _os
 
 # Pull in main modules/classes
 from base import GeoImage

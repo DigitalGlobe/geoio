@@ -3,6 +3,8 @@ from math import ceil, floor
 from numba import (jit, guvectorize, vectorize, float64, float32,
                    int16, uint16, double)
 
+__all__ = ['aggregate_pixel', 'nearest_pixel', 'max_pixel', 'min_pixel', 'aggregate_numba_3d', 'aggregate_guvec', 'nearest_guvec',
+           'max_guvec', 'min_guvec']
 
 @jit(nopython=True)
 def aggregate_pixel(arr,x_step,y_step):

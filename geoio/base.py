@@ -20,7 +20,6 @@ import logging
 import math
 import platform
 from collections import Sequence
-from tzwhere import tzwhere
 import tinytools as tt
 
 # package import
@@ -934,7 +933,7 @@ class GeoImage(object):
         provides several options that define the region of the image from
         which pixels are pulled and how the data is returned to the users.
 
-        The returned numpy array follows the gdal convention usding a
+        The returned numpy array follows the gdal convention using a
         bands-first format (bands, x, y).  If a single band is requested,
         the first dimension will be singular.  Numpy squeeze can be used
         to quickly remove the singular dimension.  The bands-first format
