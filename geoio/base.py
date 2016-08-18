@@ -657,6 +657,37 @@ class GeoImage(object):
             else:
                 yield data
 
+    def get_data_from_geojson_feature(self, feature, **kwargs):
+        """Method to get pixel data given a single feature in a geojson file.
+        The feature must be in the same projection as the image. kwargs can be
+        anything accepted by get_data.
+
+        Parameters
+        ----------
+        feature : a single polygon feature in geojson format. expects geometry
+            input as follows:
+
+            {'geometry': {'coordinates': [[[lat1, lon1], [lat2,lon2], ... ]]}, ...}
+
+        Returns
+        ------
+        ndarray
+            Three dimensional numpy array of data from region of the image specified
+            in the feature geometry.
+        """
+
+        # create ogr geometry ring from feature geom
+        coords = feature['geometry']['coordinates'][0]
+        geom = ogr.Geometry(ogr.wkbLinearRing)
+
+        for point in coords:
+            lat, lon = point[0], point[1]
+            geom.AddPoint(lat, lon)
+
+        geom.AddPoint(coords[0][0], coords[0][1]) # close geom ring with first point
+
+        return self.get_data(geom=geom, **kwargs)
+
 
     def get_data_from_vec_extent(self, vector=None, **kwargs):
         """This is a convenience method to find the extent of a vector and
