@@ -657,17 +657,14 @@ class GeoImage(object):
             else:
                 yield data
 
-    def get_data_from_geojson_feature(self, feature, **kwargs):
-        """Method to get pixel data given a single feature in a geojson file.
-        The feature must be in the same projection as the image. kwargs can be
-        anything accepted by get_data.
+    def get_data_from_coords(self, coords, **kwargs):
+        """Method to get pixel data given polygon coordintes in the same projection as
+        the image. kwargs can be anything accepted by get_data.
 
         Parameters
         ----------
-        feature : a single polygon feature in geojson format. expects geometry
-            input as follows:
-
-            {'geometry': {'coordinates': [[[lat1, lon1], [lat2,lon2], ... ]]}, ...}
+        coords : list of lists. polygon coordinates formatted as follows:
+            [[lat_1, lon_1], [lat_2, lon_2]] (assumes working in lat/lon projection)
 
         Returns
         ------
@@ -677,7 +674,6 @@ class GeoImage(object):
         """
 
         # create ogr geometry ring from feature geom
-        coords = feature['geometry']['coordinates'][0]
         geom = ogr.Geometry(ogr.wkbLinearRing)
 
         for point in coords:
