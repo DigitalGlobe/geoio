@@ -674,13 +674,15 @@ class GeoImage(object):
         """
 
         # create ogr geometry ring from feature geom
-        geom = ogr.Geometry(ogr.wkbLinearRing)
+        ring = ogr.Geometry(ogr.wkbLinearRing)
 
         for point in coords:
             lat, lon = point[0], point[1]
-            geom.AddPoint(lat, lon)
+            ring.AddPoint(lat, lon)
 
-        geom.AddPoint(coords[0][0], coords[0][1]) # close geom ring with first point
+        ring.AddPoint(coords[0][0], coords[0][1]) # close geom ring with first point
+        geom = ogr.Geometry(ogr.wkbPolygon)
+        geom.AddGeometry(ring)
 
         return self.get_data(geom=geom, **kwargs)
 
