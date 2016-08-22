@@ -663,7 +663,8 @@ class GeoImage(object):
         Parameters
         ----------
         coords : list of lists. polygon coordinates formatted as follows:
-            [[lat_1, lon_1], [lat_2, lon_2]] (assumes working in lat/lon projection)
+            - lat/long (EPSG:4326) projection: [[lon_1, lat_1], [lon_2, lat_2], ...]
+            - UTM projection: [[x_1, y_1], [x_2, y_2], ...]
 
         Returns
         ------
@@ -676,8 +677,8 @@ class GeoImage(object):
         ring = ogr.Geometry(ogr.wkbLinearRing)
 
         for point in coords:
-            lat, lon = point[0], point[1]
-            ring.AddPoint(lat, lon)
+            lon, lat = point[0], point[1]
+            ring.AddPoint(lon, lat)
 
         ring.AddPoint(coords[0][0], coords[0][1]) # close geom ring with first point
         geom = ogr.Geometry(ogr.wkbPolygon)
