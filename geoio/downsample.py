@@ -1,4 +1,3 @@
-import imp
 import logging
 import numpy as np
 
@@ -27,7 +26,7 @@ def downsample(arr,
                no_data_value = None,
                source = None):
     """
-    Downsampling an array with either a custiom routine from below or
+    Downsampling an array with either a custom routine from below or
     cv2 based on which options is available for a given downsample.
 
     Parameters
@@ -193,7 +192,7 @@ def downsample_to_grid(arr,x_steps,y_steps,no_data_value=None,
             raise ValueError('Specified method is not available')
     elif use_numba:
         # If cv2 isn't available or the requested steps are from a grid
-        # that doens't nicely overlap this image, use custom implementations
+        # that doesn't nicely overlap this image, use custom implementations
         # from below.
         if method == 'aggregate':
             logger.debug('running aggregate with custom numba function.')
